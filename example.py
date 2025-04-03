@@ -20,7 +20,8 @@ with open("./data/system_prompt.txt", "r", encoding="utf-8") as file:
 
 assistant = client.assistants.create_assistant(
     name="Recommendation Agent",
-    instructions="You are a helpful AI assistant, connected to a movie database."
+    instructions="You are a helpful AI assistant, connected to a movie database. Please, when you generate JSON with"
+                 " SQL queries remember to type \"\" instead of '' when expressing conditions on strings on the WHERE clause. When generating the JSON, remember to type \"arguments\" instead of \"parameters\" to refer to the parameters of a function."
 )
 
 # Step 3: Register the SQL query tool
@@ -40,7 +41,7 @@ func_def = {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "SQL SELECT query. Example: SELECT * FROM movies WHERE genre = 'horror';"
+                    "description": "SQL SELECT query. Example: SELECT * FROM movies WHERE genre = \"horror\";"
                 }
             },
             "required": ["query"]
@@ -61,7 +62,7 @@ client.tools.associate_tool_with_assistant(
 )
 
 # Step 4: Start a conversation
-thread = client.threads.create_thread(participant_ids=user.id)
+thread = client.threads.create_thread(participant_ids=[user.id])
 
 message = client.messages.create_message(
     thread_id=thread.id,
@@ -152,8 +153,9 @@ stream.setup(
 
 try:
     print("📡 Streaming assistant response...\n")
-    for chunk in stream.stream_chunks(provider="Hyperbolic", model="meta-llama/Llama-3.3-70B-Instruct"):
-        print(json.dumps(chunk))
+    for chunk in stream.stream_chunks(provider="Hyperbolic", model="hyperbolic/meta-llama/llama-3.3-70b-instruct"):
+        pass
+        # print(json.dumps(chunk))
     print("\n✅ Stream complete.")
 except Exception as e:
     logger.error("❌ Stream failed: %s", str(e))

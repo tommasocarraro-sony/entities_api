@@ -14,7 +14,7 @@ load_dotenv()
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "src", "api"))
 
-from src.api.entities.services.assistant_set_up_service import AssistantSetupService
+from src.api.entities_api.services.assistant_set_up_service import AssistantSetupService
 
 def wait_for_health(health_url, timeout=300, interval=5):
     """
