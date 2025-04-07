@@ -137,11 +137,11 @@ Generated JSON:
     "arguments":
         {
             "item": 874,
-            "information": "all"
+            "information": ["all"]
         }
 }
 
-Since all the available metadata is requested, the "information" argument contains the string "all". We will see that this
+Since all the available metadata is requested, the "information" argument contains the list ["all"]. We will see that this
 argument will be a list when specific information is requested.
 
 4. "What are some movies (provide the titles) that belong to fantasy and adventure genres, have Leonardo DiCaprio in the cast, and have been
