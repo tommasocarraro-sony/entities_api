@@ -33,9 +33,9 @@ python start.py
 ```python
 import json
 import logging
-from entities import Entities
-from entities import EventsInterface
-from entities.clients.actions import ActionsClient
+from entities_api import Entities
+from entities_api import EventsInterface
+from entities_api.clients.actions import ActionsClient
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("inference")
