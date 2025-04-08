@@ -70,19 +70,21 @@ async def handle_message(message):
     # await Message(content=reply_text).send()
 
     msg = cl.Message(content="")
-    try:
-        async for chunk in client.inference.stream_inference_response(
-            provider="Hyperbolic",
-            model="hyperbolic/meta-llama/llama-3.3-70b-instruct",
-            thread_id=thread.id,
-            message_id=message.id,
-            run_id=run.id,
-            assistant_id=assistant.id
-        ):
-            token = chunk.get("content", "")
-            await msg.stream_token(token)
-    except httpx.ReadTimeout:
-        time.sleep(2)
+    while True:
+        try:
+            async for chunk in client.inference.stream_inference_response(
+                provider="Hyperbolic",
+                model="hyperbolic/meta-llama/llama-3.3-70b-instruct",
+                thread_id=thread.id,
+                message_id=message.id,
+                run_id=run.id,
+                assistant_id=assistant.id
+            ):
+                token = chunk.get("content", "")
+                await msg.stream_token(token)
+            break
+        except httpx.TimeoutException as e:
+            time.sleep(10)
 
     await msg.update()
 
