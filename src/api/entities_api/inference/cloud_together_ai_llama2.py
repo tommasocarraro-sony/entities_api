@@ -1,7 +1,7 @@
 from abc import ABC
 
 from dotenv import load_dotenv
-from entities_common import UtilsInterface
+from projectdavid_common import UtilsInterface
 
 from entities_api.inference.base_inference import BaseInference
 
@@ -22,7 +22,9 @@ class TogetherLlama2Inference(BaseInference, ABC):
     def get_function_call_state(self):
         return self.function_call
 
-    def handle_code_interpreter_action(self, thread_id, run_id, assistant_id, arguments_dict):
+    def handle_code_interpreter_action(
+        self, thread_id, run_id, assistant_id, arguments_dict
+    ):
         return super().handle_code_interpreter_action(
             thread_id, run_id, assistant_id, arguments_dict
         )
@@ -35,7 +37,9 @@ class TogetherLlama2Inference(BaseInference, ABC):
         )
 
     def process_function_calls(self, thread_id, run_id, assistant_id, model=None):
-        return super().process_function_calls(thread_id, run_id, assistant_id, model=None)
+        return super().process_function_calls(
+            thread_id, run_id, assistant_id, model=None
+        )
 
     def process_conversation(
         self, thread_id, message_id, run_id, assistant_id, model, stream_reasoning=False
@@ -50,7 +54,9 @@ class TogetherLlama2Inference(BaseInference, ABC):
         ):
             yield chunk
         # Process function call state using the centralized method.
-        for chunk in self.process_function_calls(thread_id, run_id, assistant_id, model=model):
+        for chunk in self.process_function_calls(
+            thread_id, run_id, assistant_id, model=model
+        ):
             yield chunk
 
     def __del__(self):

@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 import os
+
 from fastapi import FastAPI
+from projectdavid_common import UtilsInterface
 from sqlalchemy import create_engine, text
 
 from entities_api.models.models import Base
-from entities_api.routers import api_router  # This central router includes all decoupled routers
-from entities_common import UtilsInterface
+from entities_api.routers import (  # This central router includes all decoupled routers
+    api_router,
+)
 
 # Initialize the logging utility
 logging_utility = UtilsInterface.LoggingUtility()

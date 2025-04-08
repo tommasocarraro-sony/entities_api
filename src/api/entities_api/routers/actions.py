@@ -1,11 +1,10 @@
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from projectdavid_common import ValidationInterface
 from sqlalchemy.orm import Session
 
 from entities_api.dependencies import get_db
-from entities_api.schemas.actions import ActionUpdate, ActionCreate
-from entities_api.schemas.actions import ActionRead
 from entities_api.services.actions import ActionService
 from entities_api.services.logging_service import LoggingUtility
 
@@ -13,8 +12,10 @@ router = APIRouter()
 logging_utility = LoggingUtility()
 
 
-@router.post("/actions", response_model=ActionRead)
-def create_action(action: ActionCreate, db: Session = Depends(get_db)):
+@router.post("/actions", response_model=ValidationInterface.ActionRead)
+def create_action(
+    action: ValidationInterface.ActionCreate, db: Session = Depends(get_db)
+):
     logging_utility.info(f"Received request to create a new action.")
     action_service = ActionService(db)
     try:
@@ -25,11 +26,13 @@ def create_action(action: ActionCreate, db: Session = Depends(get_db)):
         logging_utility.error(f"HTTP error occurred while creating action: {str(e)}")
         raise e
     except Exception as e:
-        logging_utility.error(f"An unexpected error occurred while creating action: {str(e)}")
+        logging_utility.error(
+            f"An unexpected error occurred while creating action: {str(e)}"
+        )
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
-@router.get("/actions/{action_id}", response_model=ActionRead)
+@router.get("/actions/{action_id}", response_model=ValidationInterface.ActionRead)
 def get_action(action_id: str, db: Session = Depends(get_db)):
     logging_utility.info(f"Received request to get action with ID: {action_id}")
     action_service = ActionService(db)
@@ -38,7 +41,9 @@ def get_action(action_id: str, db: Session = Depends(get_db)):
         logging_utility.info(f"Action retrieved successfully with ID: {action_id}")
         return action
     except HTTPException as e:
-        logging_utility.error(f"HTTP error occurred while retrieving action {action_id}: {str(e)}")
+        logging_utility.error(
+            f"HTTP error occurred while retrieving action {action_id}: {str(e)}"
+        )
         raise e
     except Exception as e:
         logging_utility.error(
@@ -47,15 +52,19 @@ def get_action(action_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
-@router.put("/actions/{action_id}", response_model=ActionRead)
+@router.put("/actions/{action_id}", response_model=ValidationInterface.ActionRead)
 def update_action_status(
-    action_id: str, action_update: ActionUpdate, db: Session = Depends(get_db)
+    action_id: str,
+    action_update: ValidationInterface.ActionUpdate,
+    db: Session = Depends(get_db),
 ):
     logging_utility.info(f"Received request to update status of action ID: {action_id}")
     action_service = ActionService(db)
     try:
         updated_action = action_service.update_action_status(action_id, action_update)
-        logging_utility.info(f"Action status updated successfully for action ID: {action_id}")
+        logging_utility.info(
+            f"Action status updated successfully for action ID: {action_id}"
+        )
         return updated_action
     except HTTPException as e:
         logging_utility.error(
@@ -69,7 +78,9 @@ def update_action_status(
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
-@router.get("/runs/{run_id}/actions/status", response_model=List[ActionRead])
+@router.get(
+    "/runs/{run_id}/actions/status", response_model=List[ValidationInterface.ActionRead]
+)
 def get_actions_by_status(
     run_id: str, status: Optional[str] = "pending", db: Session = Depends(get_db)
 ):
@@ -103,7 +114,9 @@ def get_pending_actions(
     Retrieve all pending actions with their function arguments, tool names,
     and run details. Filter by run_id.
     """
-    logging_utility.info(f"Received request to list pending actions for run_id: {run_id}")
+    logging_utility.info(
+        f"Received request to list pending actions for run_id: {run_id}"
+    )
     action_service = ActionService(db)
     try:
         # Assuming `get_pending_actions` only uses the `run_id` parameter
@@ -113,7 +126,9 @@ def get_pending_actions(
         )
         return pending_actions
     except HTTPException as e:
-        logging_utility.error(f"HTTP error occurred while listing pending actions: {str(e)}")
+        logging_utility.error(
+            f"HTTP error occurred while listing pending actions: {str(e)}"
+        )
         raise e
     except Exception as e:
         logging_utility.error(
@@ -131,7 +146,9 @@ def delete_action(action_id: str, db: Session = Depends(get_db)):
         logging_utility.info(f"Action deleted successfully with ID: {action_id}")
         return {"detail": "Action deleted successfully"}
     except HTTPException as e:
-        logging_utility.error(f"HTTP error occurred while deleting action {action_id}: {str(e)}")
+        logging_utility.error(
+            f"HTTP error occurred while deleting action {action_id}: {str(e)}"
+        )
         raise e
     except Exception as e:
         logging_utility.error(

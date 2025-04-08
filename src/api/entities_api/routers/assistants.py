@@ -1,21 +1,25 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from projectdavid.clients.users import UsersClient
+from projectdavid_common import ValidationInterface
 from sqlalchemy.orm import Session
 
-from entities_api.clients.client import UserClient
 from entities_api.dependencies import get_db
-from entities_api.schemas.assistants import AssistantRead, AssistantCreate, AssistantUpdate
-from entities_api.services.assistant_service import AssistantService
+from entities_api.services.assistants import AssistantService
 from entities_api.services.logging_service import LoggingUtility
 
 router = APIRouter()
 logging_utility = LoggingUtility()
 
 
-@router.post("/assistants", response_model=AssistantRead)
-def create_assistant(assistant: AssistantCreate, db: Session = Depends(get_db)):
-    logging_utility.info(f"Creating assistant with ID: {assistant.id or 'auto-generated'}")
+@router.post("/assistants", response_model=ValidationInterface.AssistantRead)
+def create_assistant(
+    assistant: ValidationInterface.AssistantCreate, db: Session = Depends(get_db)
+):
+    logging_utility.info(
+        f"Creating assistant with ID: {assistant.id or 'auto-generated'}"
+    )
     assistant_service = AssistantService(db)
     try:
         new_assistant = assistant_service.create_assistant(assistant)
@@ -27,13 +31,17 @@ def create_assistant(assistant: AssistantCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/assistants/{assistant_id}", response_model=AssistantRead)
+@router.get(
+    "/assistants/{assistant_id}", response_model=ValidationInterface.AssistantRead
+)
 def get_assistant(assistant_id: str, db: Session = Depends(get_db)):
     logging_utility.info(f"Received request to get assistant with ID: {assistant_id}")
     assistant_service = AssistantService(db)
     try:
         assistant = assistant_service.retrieve_assistant(assistant_id)
-        logging_utility.info(f"Assistant retrieved successfully with ID: {assistant_id}")
+        logging_utility.info(
+            f"Assistant retrieved successfully with ID: {assistant_id}"
+        )
         return assistant
     except HTTPException as e:
         logging_utility.error(
@@ -47,14 +55,22 @@ def get_assistant(assistant_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
-@router.put("/assistants/{assistant_id}", response_model=AssistantRead)
+@router.put(
+    "/assistants/{assistant_id}", response_model=ValidationInterface.AssistantRead
+)
 def update_assistant(
-    assistant_id: str, assistant_update: AssistantUpdate, db: Session = Depends(get_db)
+    assistant_id: str,
+    assistant_update: ValidationInterface.AssistantUpdate,
+    db: Session = Depends(get_db),
 ):
-    logging_utility.info(f"Received request to update assistant with ID: {assistant_id}")
+    logging_utility.info(
+        f"Received request to update assistant with ID: {assistant_id}"
+    )
     assistant_service = AssistantService(db)
     try:
-        updated_assistant = assistant_service.update_assistant(assistant_id, assistant_update)
+        updated_assistant = assistant_service.update_assistant(
+            assistant_id, assistant_update
+        )
         logging_utility.info(f"Assistant updated successfully with ID: {assistant_id}")
         return updated_assistant
     except HTTPException as e:
@@ -69,13 +85,16 @@ def update_assistant(
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
-@router.get("/users/{user_id}/assistants", response_model=List[AssistantRead])
+@router.get(
+    "/users/{user_id}/assistants",
+    response_model=List[ValidationInterface.AssistantRead],
+)
 def list_assistants_by_user(user_id: str, db: Session = Depends(get_db)):
     """
     Endpoint to list all assistants associated with a given user.
     """
     logging_utility.info(f"Received request to list assistants for user ID: {user_id}")
-    user_service = UserClient(db)
+    user_service = UsersClient(db)
     try:
         assistants = user_service.list_assistants_by_user(user_id)
         logging_utility.info(f"Assistants retrieved for user ID: {user_id}")
@@ -93,7 +112,9 @@ def list_assistants_by_user(user_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/users/{user_id}/assistants/{assistant_id}")
-def associate_assistant_with_user(user_id: str, assistant_id: str, db: Session = Depends(get_db)):
+def associate_assistant_with_user(
+    user_id: str, assistant_id: str, db: Session = Depends(get_db)
+):
     """
     Endpoint to associate an assistant with a user.
     """

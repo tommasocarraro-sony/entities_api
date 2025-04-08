@@ -4,8 +4,8 @@ import asyncio
 import json
 import logging  # Using standard logging
 
-from entities_common import UtilsInterface
 from fastapi import APIRouter, HTTPException, Request
+from projectdavid_common import UtilsInterface
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse  # For SSE endpoint
 
@@ -74,9 +74,12 @@ async def register_run_monitoring(payload: MonitorRequest):
         raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
         # Catch any other unexpected errors during registration/start
-        logging_utility.error(f"Error registering run monitor for {run_id}: {e}", exc_info=True)
+        logging_utility.error(
+            f"Error registering run monitor for {run_id}: {e}", exc_info=True
+        )
         raise HTTPException(
-            status_code=500, detail=f"Internal server error registering monitor: {str(e)}"
+            status_code=500,
+            detail=f"Internal server error registering monitor: {str(e)}",
         )
 
 
@@ -113,7 +116,9 @@ async def subscribe_to_run_events(run_id: str, request: Request):
                 try:
                     # Use a timeout to periodically check for disconnection
                     # and potentially send keep-alives
-                    message = await asyncio.wait_for(subscriber_queue.get(), timeout=30.0)
+                    message = await asyncio.wait_for(
+                        subscriber_queue.get(), timeout=30.0
+                    )
                     yield message  # Send the pre-formatted message from the manager
                     subscriber_queue.task_done()  # Acknowledge processing
                 except asyncio.TimeoutError:
@@ -123,13 +128,17 @@ async def subscribe_to_run_events(run_id: str, request: Request):
                     continue  # Continue the loop to wait again
 
         except asyncio.CancelledError:
-            logging_utility.info(f"SSE: Event generator task cancelled for run_id: {run_id}")
+            logging_utility.info(
+                f"SSE: Event generator task cancelled for run_id: {run_id}"
+            )
             # This happens if the server shuts down or the task is force-cancelled
         finally:
             # CRITICAL Clean-up: Remove the subscriber queue from the manager
             # This happens when the client disconnects or the generator exits for any reason
             await sse_manager.remove_subscriber(run_id, subscriber_queue)
-            logging_utility.info(f"SSE: Cleaned up subscriber and queue for run_id: {run_id}")
+            logging_utility.info(
+                f"SSE: Cleaned up subscriber and queue for run_id: {run_id}"
+            )
 
     # Return the streaming response using the generator
     return EventSourceResponse(event_generator())

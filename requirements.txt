@@ -3,6 +3,7 @@
 --prefer-binary
 
 # Core libraries
+PyYAML # <--Make sure at least this is installed in local dev
 alembic
 annotated-types
 anyio
@@ -65,6 +66,9 @@ groq
 # PySMB (Samba file access)
 pysmb
 
+projectdavid>=1.0.25
+projectdavid-common
+
 # From Test PyPI (only these should resolve there)
-entities>=1.0.19
-entities-common>=0.1.14
+
+

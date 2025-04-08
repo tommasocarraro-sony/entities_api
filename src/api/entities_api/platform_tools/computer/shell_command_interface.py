@@ -24,9 +24,7 @@ class ShellCommandInterface:
         # Endpoint now should point to the updated shell command server
         self.endpoint = endpoint or "ws://sandbox:8000/ws/computer"
         self.default_thread_id = thread_id or "thread_cJq1gVLSCpLYI8zzZNRbyc"
-        self.idle_timeout = (
-            idle_timeout  # Retained for backward compatibility (not used by new ShellClient)
-        )
+        self.idle_timeout = idle_timeout  # Retained for backward compatibility (not used by new ShellClient)
 
     def run_commands(
         self,
