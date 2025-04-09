@@ -81,7 +81,7 @@ async def completions(
                 assistant_id=request.assistant_id,
                 model=request.model,
                 stream_reasoning=False,  # Keep original value unless specified otherwise
-                api_key=request.api_key,  # Pass the key from the validated request payload
+                # api_key=request.api_key,  # Pass the key from the validated request payload
             )
 
             # --- The rest of the streaming logic remains unchanged ---
