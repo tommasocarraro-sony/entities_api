@@ -3,6 +3,7 @@ from projectdavid import Entity
 from dotenv import load_dotenv
 import os
 import httpx
+load_dotenv()
 os.environ.pop("DATABASE_URL", None)
 import time
 import chainlit as cl
@@ -77,17 +78,16 @@ async def handle_message(message):
     sync_stream.setup(
         user_id=user.id,
         thread_id=thread.id,
-        assistant_id="default",
+        assistant_id=assistant.id,
         message_id=message.id,
         run_id=run.id,
-
+        api_key=os.getenv("HYPERBOLIC_API_KEY")
     )
 
     for chunk in sync_stream.stream_chunks(
         provider="Hyperbolic",
-        model="hyperbolic/meta-llama/llama-3.3-70b-instruct",
-        timeout_per_chunk=15.0,
-        api_key=os.getenv("HYPERBOLIC_API_KEY"),
+        model="hyperbolic/deepseek-ai/DeepSeek-V3",
+        timeout_per_chunk=15.0
     ):
         token = chunk.get("content", "")
         await msg.stream_token(token)
