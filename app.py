@@ -53,24 +53,6 @@ async def handle_message(message):
         thread_id=thread.id
     )
 
-    # while True:
-    #     try:
-    #         response = client.inference.create_completion_sync(
-    #             provider="Hyperbolic",
-    #             model="hyperbolic/meta-llama/llama-3.3-70b-instruct",
-    #             # model="hyperbolic/deepseek-ai/deepseek-v3",
-    #             thread_id=thread.id,
-    #             message_id=message.id,
-    #             run_id=run.id,
-    #             assistant_id=assistant.id
-    #         )
-    #         reply_text = response['choices'][0]['message']['content']
-    #         break
-    #     except httpx.ReadTimeout:
-    #         time.sleep(2)
-    #
-    # await Message(content=reply_text).send()
-
     msg = cl.Message(content="")
 
     sync_stream = client.synchronous_inference_stream
