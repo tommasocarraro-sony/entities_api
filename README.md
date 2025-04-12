@@ -87,11 +87,7 @@ Example dialogue array:
 
 ---
 
-## Quick Start 
-
-
 ![Network Diagram](assets/quik_start-work_flow.png)
-
 
 ---
 
@@ -106,15 +102,26 @@ Example dialogue array:
 - [Inference](https://github.com/frankie336/projectdavid/blob/master/docs/inference.md)  
 - [Streaming](https://github.com/frankie336/projectdavid/blob/master/docs/streams.md)  
 
+
+---
+
+### Security & Privacy
+- [Security](/docs/security_privacy_section.md.md) 
+---
+
+### Integration Status 
+- [Integration](/docs/model_integration_status.md) 
+
+
 ### Advanced Features
 
-- [Function Calling](/docs/function_calling.md)  
-- [Code Interpretation](/docs/code_interpretation.md)  
+- [Function Calling](https://github.com/frankie336/projectdavid/blob/master/docs/function_calling.md)  
+- [Code Interpretation](https://github.com/frankie336/projectdavid/blob/master/docs/code_interpretation.md)  
 
 ### Data & Vector Storage
 
 - [Files](/docs/files.md)  
-- [Vector Store](/docs/vector_store.md)  
+- [Vector Store](https://github.com/frankie336/projectdavid/blob/master/docs/vector_store.md)  
 
 ### Infrastructure & Management
 
@@ -123,7 +130,6 @@ Example dialogue array:
 - [Tools](/docs/tools.md)  
 - [Users](/docs/users.md)
 
----
 
 ## Endpoint Documentation 🌐
 

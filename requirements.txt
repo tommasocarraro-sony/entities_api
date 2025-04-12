@@ -58,6 +58,10 @@ websockets
 azure-core
 azure-ai-inference
 
+# google
+
+google-generativeai
+
 # Ollama integration
 ollama
 #
@@ -66,6 +70,7 @@ groq
 # PySMB (Samba file access)
 pysmb
 
+# Internal packages
 projectdavid
 projectdavid-common
 
