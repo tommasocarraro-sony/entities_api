@@ -59,7 +59,7 @@ RECOMMENDATION = {
                                     "description": "Threshold for average rating (between 1 and 5). "
                                                    "If not explicitly provided in the request, try to infer it."
                                                    "For example, if the user asks for highly rated movies, "
-                                                   "the threshold might be 4."
+                                                   "the threshold must be 4."
                                 }
                             },
                             "required": ["request", "threshold"]
@@ -73,7 +73,7 @@ RECOMMENDATION = {
                                     "description": "Whether to search for movies with high or low IMDb ratings. "
                                                    "If not explicitly provided in the request, try to infer it."
                                                    "For example, if the user asks for highly IMDb rated movies, "
-                                                   "the threshold might be 7."
+                                                   "the threshold must be 8."
                                 },
                                 "threshold": {
                                     "type": "number",
@@ -95,8 +95,8 @@ RECOMMENDATION = {
                                     "description": "Duration in minutes (e.g., 90 for 1h30min)."
                                                    "If not explicitly provided in the request, try to infer it."
                                                    "For example, if the user asks for long movies, "
-                                                   "the threshold might be 120 (e.g., for 2h movies). Instead, if the "
-                                                   "user asks for short movies, the threshold might be 30."
+                                                   "the threshold must be 120 (e.g., for 2h movies). Instead, if the "
+                                                   "user asks for short movies, the threshold must be 30."
                                 }
                             },
                             "required": ["request", "threshold"]
@@ -120,8 +120,8 @@ RECOMMENDATION = {
                                             "description": "Year threshold (e.g., 2000)."
                                                            "If not explicitly provided in the request, try to infer it."
                                                            "For example, if the user asks for recent movies, "
-                                                           "the threshold might be 2000. If the user asks for old "
-                                                           "movies, the threshold might be 1980."
+                                                           "the threshold must be 2000. If the user asks for old "
+                                                           "movies, the threshold must be 1980."
                                         }
                                     },
                                     "required": ["request", "threshold"]
@@ -135,164 +135,206 @@ RECOMMENDATION = {
                         }
                     },
                     "examples": {
-                        "highly_imdb_rated_sci_fi_movies_with_tom_cruise": {
-                            "actors": ["Tom Cruise"],
-                            "genres": ["sci-fi"],
-                            "imdb_rating": {
-                                "request": "higher",
-                                "threshold": 8
+                        "Filters for highly IMDb rated sci-fi movies starring Tom Cruise": {
+                            "filters": {
+                                "actors": ["Tom Cruise"],
+                                "genres": ["sci-fi"],
+                                "imdb_rating": {
+                                    "request": "higher",
+                                    "threshold": 8
+                                }
                             }
                         },
-                        "higher_than_7_imdb_rated_action_and_sci-fi_movies_with_tom_cruise_and_emily_blunt": {
-                            "actors": ["Tom Cruise", "Emily Blunt"],
-                            "genres": ["sci-fi", "action"],
-                            "imdb_rating": {
-                                "request": "higher",
-                                "threshold": 7
+                        "Filters for movies starring Tom Cruise and Emily Blunt, belonging to sci-fi and action genres, and with an IMDb rating higher than 7": {
+                            "filters": {
+                                "actors": ["Tom Cruise", "Emily Blunt"],
+                                "genres": ["sci-fi", "action"],
+                                "imdb_rating": {
+                                    "request": "higher",
+                                    "threshold": 7
+                                }
                             }
                         },
-                        "short_comedies": {
-                            "genres": ["comedy"],
-                            "duration": {
-                                "request": "lower",
-                                "threshold": 30
+                        "Filters for short comedy movies": {
+                            "filters": {
+                                "genres": ["comedy"],
+                                "duration": {
+                                    "request": "lower",
+                                    "threshold": 30
+                                }
                             }
                         },
-                        "action_movies_longer_than_1_hour_and_30_minutes": {
+                        "Filters for action movies lasting more than 1 hour and 30 minutes. This is the content of the \"filters\" field for this kind of request": {
                             "genres": ["action"],
                             "duration": {
                                 "request": "higher",
                                 "threshold": 90
                             }
                         },
-                        "old_popular_movies": {
-                            "release_date": {
-                                "request": "lower",
-                                "threshold": 1980
-                            },
-                            "popularity": "popular"
-                        },
-                        "long_recent_movies_by_director": {
-                            "director": ["Christopher Nolan"],
-                            "duration": {
-                                "request": "higher",
-                                "threshold": 120
-                            },
-                            "release_date": {
-                                "request": "higher",
-                                "threshold": 2000
+                        "Filters for old but popular movies": {
+                            "filters": {
+                                "release_date": {
+                                    "request": "lower",
+                                    "threshold": 1980
+                                },
+                                "popularity": "popular"
                             }
                         },
-                        "badly_rated_avg": {
-                            "avg_rating": {
-                                "request": "lower",
-                                "threshold": 2
+                        "Filters for long movies directed by Christopher Nolan and recently released": {
+                            "filters": {
+                                "director": ["Christopher Nolan"],
+                                "duration": {
+                                    "request": "higher",
+                                    "threshold": 120
+                                },
+                                "release_date": {
+                                    "request": "higher",
+                                    "threshold": 2000
+                                }
                             }
                         },
-                        "country_specific": {
-                            "country": "France"
-                        },
-                        "highly_rated_sci_fi_thrillers_with_di_caprio_and_nolan": {
-                            "actors": ["Leonardo DiCaprio"],
-                            "genres": ["sci-fi", "thriller"],
-                            "director": ["Christopher Nolan"],
-                            "avg_rating": {
-                                "request": "higher",
-                                "threshold": 4
-                            },
-                        },
-                        "short_old_french_romance_movies": {
-                            "genres": ["romance"],
-                            "country": "France",
-                            "duration": {
-                                "request": "lower",
-                                "threshold": 30
-                            },
-                            "release_date": {
-                                "request": "lower",
-                                "threshold": 1980
-                            },
-                        },
-                        "recent_animated_movies_produced_by_pixar": {
-                            "genres": ["animation"],
-                            "producer": ["Pixar"],
-                            "release_date": {
-                                "request": "higher",
-                                "threshold": 2000
-                            },
-                        },
-                        "long_badly_rated_action_movies_from_india": {
-                            "genres": ["action"],
-                            "country": "India",
-                            "avg_rating": {
-                                "request": "lower",
-                                "threshold": 2.5
-                            },
-                        },
-                        "older_thrillers_by_david_fincher": {
-                            "genres": ["thriller"],
-                            "director": ["David Fincher"],
-                            "release_date": {
-                                "request": "lower",
-                                "threshold": 1980
-                            },
-                        },
-                        "comedies_by_producers_judd_apatow_and_will_ferrell": {
-                            "genres": ["comedy"],
-                            "producer": ["Judd Apatow", "Will Ferrell"],
-                        },
-                        "historical_dramas_with_low_imdb_but_high_avg_rating": {
-                            "genres": ["history", "drama"],
-                            "avg_rating": {
-                                "request": "higher",
-                                "threshold": 4
-                            },
-                            "imdb_rating": {
-                                "request": "lower",
-                                "threshold": 6
-                            },
-                            "release_date": {
-                                "request": "lower",
-                                "threshold": 1980
+                        "Filters for movies with a bad average rating in the platform": {
+                            "filters": {
+                                "avg_rating": {
+                                    "request": "lower",
+                                    "threshold": 2
+                                }
                             }
                         },
-                        "exact_year_release_action_movie_1994": {
-                            "genres": ["action"],
-                            "release_date": 1994
+                        "Filters for movies from France": {
+                            "filters": {
+                                "country": "France"
+                            }
+                        },
+                        "Filters for movies starring Leonardo DiCaprio, belonging to sci-fi and thriller genres, and with a high average rating on the platform": {
+                            "filters": {
+                                "actors": ["Leonardo DiCaprio"],
+                                "genres": ["sci-fi", "thriller"],
+                                "director": ["Christopher Nolan"],
+                                "avg_rating": {
+                                    "request": "higher",
+                                    "threshold": 4
+                                }
+                            }
+                        },
+                        "Filters for romantic short old movies from France": {
+                            "filters": {
+                                "genres": ["romance"],
+                                "country": "France",
+                                "duration": {
+                                    "request": "lower",
+                                    "threshold": 30
+                                },
+                                "release_date": {
+                                    "request": "lower",
+                                    "threshold": 1980
+                                }
+                            }
+                        },
+                        "Filters for recent animation movies produced by Pixar": {
+                            "filters": {
+                                "genres": ["animation"],
+                                "producer": ["Pixar"],
+                                "release_date": {
+                                    "request": "higher",
+                                    "threshold": 2000
+                                }
+                            }
+                        },
+                        "Filters for italian action movies with a low average rating on the platform": {
+                            "filters": {
+                                "genres": ["action"],
+                                "country": "Italy",
+                                "avg_rating": {
+                                    "request": "lower",
+                                    "threshold": 2
+                                }
+                            }
+                        },
+                        "Filters for old thriller movies directed by David Fincher": {
+                            "filters": {
+                                "genres": ["thriller"],
+                                "director": ["David Fincher"],
+                                "release_date": {
+                                    "request": "lower",
+                                    "threshold": 1980
+                                }
+                            }
+                        },
+                        "Filters for comedy movies produced by Judd Apatow and Will Ferrell": {
+                            "filters": {
+                                "genres": ["comedy"],
+                                "producer": ["Judd Apatow", "Will Ferrell"]
+                            }
+                        },
+                        "Filters for old historical and drama movies with a high average rating on the platform but an IMDb rating lower than 6": {
+                            "filters": {
+                                "genres": ["history", "drama"],
+                                "avg_rating": {
+                                    "request": "higher",
+                                    "threshold": 4
+                                },
+                                "imdb_rating": {
+                                    "request": "lower",
+                                    "threshold": 6
+                                },
+                                "release_date": {
+                                    "request": "lower",
+                                    "threshold": 1980
+                                }
+                            }
+                        },
+                        "Filters for movies released in 1994": {
+                            "filters": {
+                                "genres": ["action"],
+                                "release_date": 1994
+                            }
                         }
                     }
                 }
             },
             "required": ["user", "k"],
             "examples": {
-                "recommendation_of_6_movies_for_user_14": {
-                    "user": 14,
-                    "k": 6
+                "Provide 6 recommendations for user 14": {
+                    "name": "get_top_k_recommendations",
+                    "arguments": {
+                        "user": 14,
+                        "k": 6
+                    }
                 },
-                "recommendation_for_user_85": {
-                    "user": 85,
-                    "k": 5
+                "Provide some recommendations for user 85": {
+                    "name": "get_top_k_recommendations",
+                    "arguments": {
+                        "user": 85,
+                        "k": 5
+                    }
                 },
-                "recommendation_of_3_recent_action_movies_with_high_IMDb_score_for_user_10": {
-                    "user": 10,
-                    "k": 3,
-                    "filters": {
-                        "genres": ["action"],
-                        "release_date": {
-                            "request": "higher",
-                            "threshold": 2000
-                        },
-                        "imdb_rating": {
-                            "request": "higher",
-                            "threshold": 8
+                "Recommend 3 recent action movies with a high IMDb rating for user 10": {
+                    "name": "get_top_k_recommendations",
+                    "arguments": {
+                        "user": 10,
+                        "k": 3,
+                        "filters": {
+                            "genres": ["action"],
+                            "release_date": {
+                                "request": "higher",
+                                "threshold": 2000
+                            },
+                            "imdb_rating": {
+                                "request": "higher",
+                                "threshold": 8
+                            }
                         }
                     }
                 },
-                "recommendation_of_sci-fi_movies_for_user_45": {
-                    "user": 45,
-                    "k": 5,
-                    "filters": {
-                        "genres": ["sci-fi"]
+                "Recommend some sci-fi movies for user 45": {
+                    "name": "get_top_k_recommendations",
+                    "arguments": {
+                        "user": 45,
+                        "k": 5,
+                        "filters": {
+                            "genres": ["sci-fi"]
+                        }
                     }
                 }
             }
@@ -321,22 +363,156 @@ METADATA = {
                     "description": "List of item metadata features to be included in the response. Available features"
                                    "are: [\"title\", \"avg_rating\", \"description\", \"genres\", \"director\", "
                                    "\"producer\", \"duration\", \"release_date\", \"actors\", \"country\", "
-                                   "\"imdb_rating\", \"popularity\"]."
+                                   "\"imdb_rating\", \"popularity\"].",
+                    "examples": {
+                        "Specification for when actors and director are the requested features": {
+                            "specification": ["actors", "director"]
+                        },
+                        "Specification for when title and description are the requested features": {
+                            "specification": ["title", "description"]
+                        },
+                        "Specification for when full metadata is requested": {
+                            "specification": ["title", "avg_rating", "description", "genres", "director", "producer", "duration", "release_date", "actors", "country", "imdb_rating", "popularity"]
+                        },
+                        "Specification for when the average rating, the IMDb rating, and the popularity are the requested features": {
+                            "specification": ["avg_rating", "imdb_rating", "popularity"]
+                        },
+                        "Specification for when director, producer, and release date are the requested features": {
+                            "specification": ["director", "producer", "release_date"]
+                        },
+                        "Specification for the genres and country are the requested features": {
+                            "specification": ["genres", "country"]
+                        },
+                        "Specification for when title and duration are the requested features": {
+                            "specification": ["title", "duration"]
+                        },
+                        "Specification for when title and director are the requested features": {
+                            "specification": ["title", "director"]
+                        }
+                    }
                 }
             }
         },
-        "required": ["item"],
+        "required": ["item", "specification"],
         "examples": {
-            "all_metadata_for_item_47": {
-                "item": 47
+            "Provide all the information you know about item 47": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 47,
+                    "specification": ["title", "avg_rating", "description", "genres", "director", "producer", "duration", "release_date", "actors", "country", "imdb_rating", "popularity"]
+                }
             },
-            "actors_of_item_54": {
-                "item": 54,
-                "specification": ["actors"]
+            "What are the actors of item 54?": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 54,
+                    "specification": ["actors"]
+                }
             },
-            "country_genres_director_for_item_98": {
-                "item": 98,
-                "specification": ["director", "genres", "country"]
+            "What are the director, genres and country of item 98?": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 98,
+                    "specification": ["director", "genres", "country"]
+                }
+            },
+            "Give me the release date and duration for item 12": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 12,
+                    "specification": ["release_date", "duration"]
+                }
+            },
+            "Show the IMDb rating and popularity of item 200": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 200,
+                    "specification": ["imdb_rating", "popularity"]
+                }
+            },
+            "Provide the title and average rating of item 77": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 77,
+                    "specification": ["title", "avg_rating"]
+                }
+            },
+            "Tell me about the genres and producer of item 150": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 150,
+                    "specification": ["genres", "producer"]
+                }
+            },
+            "What is the description of item 33?": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 33,
+                    "specification": ["description"]
+                }
+            },
+            "Provide information for item 205, including actors and director": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 205,
+                    "specification": ["actors", "director"]
+                }
+            },
+            "What are the genres and country for item 82?": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 82,
+                    "specification": ["genres", "country"]
+                }
+            },
+            "Show me the title, director, and popularity of item 120": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 120,
+                    "specification": ["title", "director", "popularity"]
+                }
+            },
+            "Give me the average rating and duration for item 50": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 50,
+                    "specification": ["avg_rating", "duration"]
+                }
+            },
+            "Tell me the country and release date for item 199": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 199,
+                    "specification": ["country", "release_date"]
+                }
+            },
+            "What is the producer and description of item 105?": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 105,
+                    "specification": ["producer", "description"]
+                }
+            },
+            "Provide the title and genres for item 60": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 60,
+                    "specification": ["title", "genres"]
+                }
+            },
+            "Give me the actors and IMDb rating of item 45": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 45,
+                    "specification": ["actors", "imdb_rating"]
+                }
+            },
+            "What is the release date of item 111?": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "item": 111,
+                    "specification": ["release_date"]
+                }
             }
         }
     }
