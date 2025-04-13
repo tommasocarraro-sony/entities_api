@@ -1,5 +1,4 @@
 RECOMMENDATION = {
-    "type": "function",
     "function": {
         "name": "get_top_k_recommendations",
         "description": (
@@ -343,7 +342,6 @@ RECOMMENDATION = {
 }
 
 METADATA = {
-    "type": "function",
     "function": {
         "name": "get_item_metadata",
         "description": (
