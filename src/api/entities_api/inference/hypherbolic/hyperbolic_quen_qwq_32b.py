@@ -13,7 +13,7 @@ load_dotenv()
 logging_utility = LoggingUtility()
 
 
-class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
+class HyperbolicQuenQwq32bInference(BaseInference, ABC):
 
     def setup_services(self):
         logging_utility.debug(
@@ -52,76 +52,44 @@ class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
         stream_reasoning: bool = True,
         api_key: Optional[str] = None,
     ) -> Generator[str, None, None]:
+        from hyperbolic_async_client import AsyncHyperbolicClient
+
+        from entities_api.utils.async_to_sync import async_to_sync_stream
 
         self.start_cancellation_listener(run_id)
 
         if self._get_model_map(value=model):
             model = self._get_model_map(value=model)
 
+        messages = self._set_up_context_window(assistant_id, thread_id, trunk=True)
         request_payload = {
             "model": model,
-            "messages": self._set_up_context_window(
-                assistant_id, thread_id, trunk=True
-            ),
+            "messages": messages,
             "max_tokens": None,
             "temperature": 0.6,
+            "top_p": 0.9,
             "stream": True,
         }
 
-        client_to_use = None
-        key_source_log = "default configured"
-
-        if api_key:
-            key_source_log = "provided"
-            logging_utility.debug(
-                f"Run {run_id}: Creating temporary Hyperbolic client with provided API key."
-            )
-
-            hyperbolic_base_url = os.getenv("HYPERBOLIC_BASE_URL")
-            # 2. Check if the base URL is missing or empty
-            if not hyperbolic_base_url:
-                error_msg_log = f"Run {run_id}: Configuration Error: 'HYPERBOLIC_BASE_URL' environment variable is not set or is empty. Cannot initialize temporary Hyperbolic client."
-                logging_utility.error(error_msg_log)
-                # Yield a user-friendly error message about configuration
-                yield json.dumps(
-                    {
-                        "type": "error",
-                        "content": "Server Configuration Error: Hyperbolic service endpoint is not configured. Please check server logs or contact support.",
-                    }
-                )
-                return  # Stop execution for this request
-
-            try:
-
-                client_to_use = self._get_openai_client(
-                    base_url=os.getenv("HYPERBOLIC_BASE_URL"), api_key=api_key
-                )
-
-            except Exception as client_init_error:
-                logging_utility.error(
-                    f"Run {run_id}: Failed to create temporary Hyperbolic client: {client_init_error}",
-                    exc_info=True,
-                )
-                yield json.dumps(
-                    {
-                        "type": "error",
-                        "content": f"Failed to initialize client for request: {client_init_error}",
-                    }
-                )
-                return
-        else:
-            logging_utility.debug(
-                f"Run {run_id}: Using default configured Hyperbolic client."
-            )
-
-        if not client_to_use:
-            logging_utility.error(
-                f"Run {run_id}: No valid Hyperbolic client available."
-            )
+        if not api_key:
+            logging_utility.error(f"Run {run_id}: No API key provided.")
             yield json.dumps(
-                {"type": "error", "content": "Hyperbolic client configuration error."}
+                {"type": "error", "content": "Missing API key for Hyperbolic."}
             )
             return
+
+        hyperbolic_base_url = os.getenv("HYPERBOLIC_BASE_URL")
+        if not hyperbolic_base_url:
+            logging_utility.error(f"Run {run_id}: Missing HYPERBOLIC_BASE_URL.")
+            yield json.dumps(
+                {
+                    "type": "error",
+                    "content": "Hyperbolic service not configured. Contact support.",
+                }
+            )
+            return
+
+        client = AsyncHyperbolicClient(api_key=api_key, base_url=hyperbolic_base_url)
 
         assistant_reply = ""
         accumulated_content = ""
@@ -131,43 +99,30 @@ class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
         code_buffer = ""
 
         try:
+            async_stream = client.stream_chat_completion(
+                prompt=messages[-1]["content"],
+                model=model,
+                temperature=request_payload["temperature"],
+                top_p=request_payload["top_p"],
+                max_tokens=request_payload["max_tokens"],
+            )
 
-            response = client_to_use.chat.completions.create(**request_payload)
-
-            # Process the stream
-            for token in response:
+            for token in async_to_sync_stream(async_stream):
                 if self.check_cancellation_flag():
                     logging_utility.warning(f"Run {run_id} cancelled mid-stream")
                     yield json.dumps({"type": "error", "content": "Run cancelled"})
                     break
 
-                if not hasattr(token, "choices") or not token.choices:
-                    continue
-
-                delta = token.choices[0].delta
-
-                # Process reasoning if present and enabled
-                delta_reasoning = getattr(delta, "reasoning_content", "")
-                if delta_reasoning and stream_reasoning:
-                    reasoning_content += delta_reasoning
-                    yield json.dumps({"type": "reasoning", "content": delta_reasoning})
-
-                # Process content
-                delta_content = getattr(delta, "content", "")
-                if not delta_content:
-                    continue
-
-                # Split content based on reasoning tags
                 segments = (
-                    self.REASONING_PATTERN.split(delta_content)
+                    self.REASONING_PATTERN.split(token)
                     if hasattr(self, "REASONING_PATTERN")
-                    else [delta_content]
+                    else [token]
                 )
+
                 for seg in segments:
                     if not seg:
                         continue
 
-                    # Handle reasoning tags
                     if seg == "<think>":
                         in_reasoning = True
                         reasoning_content += seg
@@ -181,7 +136,6 @@ class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
                             yield json.dumps({"type": "reasoning", "content": seg})
                         continue
 
-                    # Process content or reasoning segment
                     if in_reasoning:
                         reasoning_content += seg
                         if stream_reasoning:
@@ -190,7 +144,6 @@ class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
                         assistant_reply += seg
                         accumulated_content += seg
 
-                        # Handle code interpreter logic if applicable
                         if hasattr(self, "parse_code_interpreter_partial"):
                             partial_match = self.parse_code_interpreter_partial(
                                 accumulated_content
@@ -199,10 +152,7 @@ class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
                             partial_match = None
 
                         if not code_mode and partial_match:
-                            # Enter code mode
-                            full_match = partial_match.get(
-                                "full_match"
-                            )  # Ensure parse_code_interpreter_partial returns this if needed
+                            full_match = partial_match.get("full_match")
                             if full_match:
                                 match_index = accumulated_content.find(full_match)
                                 if match_index != -1:
@@ -215,7 +165,6 @@ class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
                             yield json.dumps(
                                 {"type": "hot_code", "content": "```python\n"}
                             )
-                            # Process initial buffer if code interpreter chunks method exists
                             if code_buffer and hasattr(
                                 self, "_process_code_interpreter_chunks"
                             ):
@@ -230,11 +179,10 @@ class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
                                         r
                                         if isinstance(r, str)
                                         else json.loads(r).get("content", "")
-                                    )  # Accumulate string content
+                                    )
                             continue
 
                         if code_mode:
-                            # Process code chunks if method exists
                             if hasattr(self, "_process_code_interpreter_chunks"):
                                 results, code_buffer = (
                                     self._process_code_interpreter_chunks(
@@ -247,18 +195,16 @@ class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
                                         r
                                         if isinstance(r, str)
                                         else json.loads(r).get("content", "")
-                                    )  # Accumulate string content
-                            else:  # Fallback if method missing
+                                    )
+                            else:
                                 yield json.dumps({"type": "hot_code", "content": seg})
                             continue
 
-                        # Yield normal content if not in code mode
                         if not code_buffer:
                             yield json.dumps({"type": "content", "content": seg})
 
         except Exception as e:
-            # Error message now uses key_source_log determined earlier
-            error_msg = f"Hyperbolic SDK error (using {key_source_log} key): {str(e)}"
+            error_msg = f"Hyperbolic client stream error: {str(e)}"
             logging_utility.error(f"Run {run_id}: {error_msg}", exc_info=True)
             if hasattr(self, "handle_error"):
                 self.handle_error(
@@ -267,18 +213,15 @@ class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
             yield json.dumps({"type": "error", "content": error_msg})
             return
 
-        # Finalize conversation and parse function calls
         if assistant_reply and hasattr(self, "finalize_conversation"):
             self.finalize_conversation(
                 reasoning_content + assistant_reply, thread_id, assistant_id, run_id
             )
 
         if accumulated_content and hasattr(self, "parse_and_set_function_calls"):
-
             function_call = self.parse_and_set_function_calls(
                 accumulated_content, assistant_reply
             )
-
         else:
             function_call = False
 
@@ -287,11 +230,8 @@ class HyperbolicDeepSeekV3Inference(BaseInference, ABC):
                 run_id, ValidationInterface.StatusEnum.pending_action
             )
 
-        # Update run status if applicable
         if hasattr(self, "run_service") and hasattr(ValidationInterface, "StatusEnum"):
-            if (
-                not self.get_function_call_state()
-            ):  # Check state using appropriate method
+            if not self.get_function_call_state():
                 self.run_service.update_run_status(
                     run_id, ValidationInterface.StatusEnum.completed
                 )

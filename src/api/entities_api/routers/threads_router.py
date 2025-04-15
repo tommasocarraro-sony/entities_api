@@ -1,91 +1,87 @@
 from fastapi import APIRouter, Depends, HTTPException
-from projectdavid_common import ValidationInterface
-from projectdavid_common.utilities.logging_service import LoggingUtility
+from projectdavid_common import UtilsInterface, ValidationInterface
 from sqlalchemy.orm import Session
 
-from entities_api.dependencies import get_db
-from entities_api.serializers import ThreadCreate
+from entities_api.dependencies import get_api_key, get_db
+from entities_api.models.models import ApiKey as ApiKeyModel
 from entities_api.services.threads import ThreadService
 
-validation = ValidationInterface()
+router = APIRouter(
+    prefix="/threads",
+    tags=["Threads"],
+    responses={404: {"description": "Thread not found"}},
+)
 
-router = APIRouter()
-logging_utility = LoggingUtility()
+validator = ValidationInterface()
+logging_utility = UtilsInterface.LoggingUtility()
 
 
-@router.post("/threads", response_model=validation.ThreadReadDetailed)
-def create_thread(thread: ThreadCreate, db: Session = Depends(get_db)):
-    logging_utility.info("Received request to create a new thread.")
-    thread_service = ThreadService(db)
+@router.post("", response_model=ValidationInterface.ThreadReadDetailed)
+def create_thread(
+    thread: ValidationInterface.ThreadCreate,
+    db: Session = Depends(get_db),
+    auth_key: ApiKeyModel = Depends(get_api_key),
+):
+    logging_utility.info(f"[{auth_key.user_id}] Creating thread")
     try:
-        new_thread = thread_service.create_thread(thread)
-        logging_utility.info(f"Thread created successfully with ID: {new_thread.id}")
-        return new_thread
-    except HTTPException as e:
-        logging_utility.error(f"HTTP error occurred while creating thread: {str(e)}")
-        raise e
+        service = ThreadService(db)
+        return service.create_thread(thread)
     except Exception as e:
-        logging_utility.error(
-            f"An unexpected error occurred while creating thread: {str(e)}"
-        )
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+        logging_utility.error(f"Error creating thread: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create thread")
 
 
-@router.get("/threads/{thread_id}", response_model=validation.ThreadRead)
-def get_thread(thread_id: str, db: Session = Depends(get_db)):
-    logging_utility.info(f"Received request to get thread with ID: {thread_id}")
-    thread_service = ThreadService(db)
-    try:
-        thread = thread_service.get_thread(thread_id)
-        logging_utility.info(f"Thread retrieved successfully with ID: {thread_id}")
-        return thread
-    except HTTPException as e:
-        logging_utility.error(
-            f"HTTP error occurred while retrieving thread {thread_id}: {str(e)}"
-        )
-        raise e
-    except Exception as e:
-        logging_utility.error(
-            f"An unexpected error occurred while retrieving thread {thread_id}: {str(e)}"
-        )
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+@router.get("/{thread_id}", response_model=ValidationInterface.ThreadReadDetailed)
+def get_thread(
+    thread_id: str,
+    db: Session = Depends(get_db),
+    auth_key: ApiKeyModel = Depends(get_api_key),
+):
+    logging_utility.info(f"[{auth_key.user_id}] Fetching thread: {thread_id}")
+    return ThreadService(db).get_thread(thread_id)
 
 
-@router.delete("/threads/{thread_id}", status_code=204)
-def delete_thread(thread_id: str, db: Session = Depends(get_db)):
-    logging_utility.info(f"Received request to delete thread with ID: {thread_id}")
-    thread_service = ThreadService(db)
-    try:
-        thread_service.delete_thread(thread_id)
-        logging_utility.info(f"Thread deleted successfully with ID: {thread_id}")
-        return {"detail": "Thread deleted successfully"}
-    except HTTPException as e:
-        logging_utility.error(
-            f"HTTP error occurred while deleting thread {thread_id}: {str(e)}"
-        )
-        raise e
-    except Exception as e:
-        logging_utility.error(
-            f"An unexpected error occurred while deleting thread {thread_id}: {str(e)}"
-        )
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+@router.delete("/{thread_id}", response_model=bool)
+def delete_thread(
+    thread_id: str,
+    db: Session = Depends(get_db),
+    auth_key: ApiKeyModel = Depends(get_api_key),
+):
+    logging_utility.info(f"[{auth_key.user_id}] Deleting thread: {thread_id}")
+    return ThreadService(db).delete_thread(thread_id)
 
 
-@router.get("/users/{user_id}/threads", response_model=validation.ThreadIds)
-def list_threads_by_user(user_id: str, db: Session = Depends(get_db)):
-    logging_utility.info(f"Received request to list threads for user ID: {user_id}")
-    thread_service = ThreadService(db)
-    try:
-        thread_ids = thread_service.list_threads_by_user(user_id)
-        logging_utility.info(f"Successfully retrieved threads for user ID: {user_id}")
-        return {"thread_ids": thread_ids}
-    except HTTPException as e:
-        logging_utility.error(
-            f"HTTP error occurred while listing threads for user {user_id}: {str(e)}"
-        )
-        raise e
-    except Exception as e:
-        logging_utility.error(
-            f"An unexpected error occurred while listing threads for user {user_id}: {str(e)}"
-        )
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+@router.get("/user/{user_id}", response_model=list[str])
+def list_user_threads(
+    user_id: str,
+    db: Session = Depends(get_db),
+    auth_key: ApiKeyModel = Depends(get_api_key),
+):
+    logging_utility.info(f"[{auth_key.user_id}] Listing threads for user {user_id}")
+    return ThreadService(db).list_threads_by_user(user_id)
+
+
+@router.put(
+    "/{thread_id}/metadata", response_model=ValidationInterface.ThreadReadDetailed
+)
+def update_thread_metadata(
+    thread_id: str,
+    metadata: dict,
+    db: Session = Depends(get_db),
+    auth_key: ApiKeyModel = Depends(get_api_key),
+):
+    logging_utility.info(
+        f"[{auth_key.user_id}] Updating metadata for thread {thread_id}"
+    )
+    return ThreadService(db).update_thread_metadata(thread_id, metadata)
+
+
+@router.put("/{thread_id}", response_model=ValidationInterface.ThreadReadDetailed)
+def update_thread(
+    thread_id: str,
+    thread_update: ValidationInterface.ThreadUpdate,
+    db: Session = Depends(get_db),
+    auth_key: ApiKeyModel = Depends(get_api_key),
+):
+    logging_utility.info(f"[{auth_key.user_id}] Updating thread {thread_id}")
+    return ThreadService(db).update_thread(thread_id, thread_update)

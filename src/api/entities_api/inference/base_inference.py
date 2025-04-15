@@ -6,7 +6,6 @@ import mimetypes
 import os
 import pprint
 import re
-import sys
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -16,6 +15,7 @@ from typing import Any, Callable, Dict, Generator, Optional
 
 import httpx
 from openai import OpenAI
+from projectdavid import Entity
 from projectdavid.clients.actions_client import ActionsClient
 from projectdavid.clients.assistants_client import AssistantsClient
 from projectdavid.clients.files_client import FileClient
@@ -23,6 +23,7 @@ from projectdavid.clients.messages_client import MessagesClient
 from projectdavid.clients.runs import RunsClient
 from projectdavid.clients.threads_client import ThreadsClient
 from projectdavid.clients.tools_client import ToolsClient
+from projectdavid.clients.users_client import UsersClient
 from projectdavid.clients.vectors import VectorStoreClient
 from projectdavid_common import ValidationInterface
 from projectdavid_common.constants.ai_model_map import MODEL_MAP
@@ -40,7 +41,6 @@ from entities_api.platform_tools.platform_tool_service import \
     PlatformToolService
 from entities_api.services.conversation_truncator import ConversationTruncator
 from entities_api.services.logging_service import LoggingUtility
-from entities_api.services.user_service import UserService
 
 logging_utility = LoggingUtility()
 validator = ValidationInterface()
@@ -64,7 +64,7 @@ class BaseInference(ABC):
 
     def __init__(
         self,
-        base_url=os.getenv("ASSISTANTS_BASE_URL"),
+        base_url=os.getenv("BASE_URL"),
         api_key=None,
         assistant_id=None,
         thread_id=None,
@@ -98,7 +98,46 @@ class BaseInference(ABC):
             )
             self.openai_client = None
 
-        self.code_mode = False
+        # Instantiate the default Together client
+        try:
+            self.together_client = Together(
+                api_key=os.getenv("TOGETHER_API_KEY"),
+            )
+
+        except Exception as e:
+            logging_utility.error(
+                "Failed to initialize default OpenAI client: %s", e, exc_info=True
+            )
+            self.openai_client = None
+
+        # 2. Initialize the default project_david client
+        project_david_api_key = os.getenv("ENTITIES_API_KEY")
+
+        project_david_base_url = self.base_url
+
+        try:
+            if not project_david_api_key:
+                raise ConfigurationError("ENTITIES_API_KEY is not set.")
+            if not project_david_base_url:
+                raise ConfigurationError(
+                    "Base URL for Project David client is not set."
+                )
+
+            self.project_david_client = Entity(
+                api_key=project_david_api_key,
+                base_url=project_david_base_url,
+                # time out handled internally
+            )
+            logging_utility.debug(
+                "Default project_david client initialized successfully."
+            )
+        except Exception as e:
+            logging_utility.error(
+                "Failed to initialize default project_david client: %s",
+                e,
+                exc_info=True,
+            )
+            self.project_david_client = None  # Ensure it's None on failure
 
         self.truncator_params = {
             "model_name": model_name,
@@ -183,6 +222,84 @@ class BaseInference(ABC):
                 raise AuthenticationError(f"Credential validation failed: {str(e)}")
 
     @lru_cache(maxsize=32)
+    def _get_together_client(
+        self, api_key: Optional[str], base_url: Optional[str] = None
+    ) -> Together:
+        """
+        Retrieves or creates a Project David client for the given API key.
+        Uses an LRU cache for reuse. If api_key is None, returns the default client.
+        """
+        if api_key:
+            logging_utility.debug("Creating client for specific key (not cached).")
+            try:
+                return Together(
+                    api_key=api_key,
+                    # base_url=base_url,
+                )
+            except Exception as e:
+                logging_utility.error(
+                    "Failed to create specific TogetherAI client: %s",
+                    e,
+                    exc_info=True,
+                )
+                if self.together_client:
+                    logging_utility.warning(
+                        "Falling back to default client due to error."
+                    )
+                    return self.together_client
+                else:
+                    raise RuntimeError(
+                        "Default TogetherAI client is not initialized, and specific client creation failed."
+                    )
+        else:
+            if self.together_client:
+                logging_utility.debug(
+                    "Using default project_david client (no specific key provided)."
+                )
+                return self.together_client
+            else:
+                raise RuntimeError("Default TogetherAI client is not initialized.")
+
+    @lru_cache(maxsize=32)
+    def _get_project_david_client(
+        self, api_key: Optional[str], base_url: Optional[str] = None
+    ) -> Entity:
+        """
+        Retrieves or creates a Project David client for the given API key.
+        Uses an LRU cache for reuse. If api_key is None, returns the default client.
+        """
+        if api_key:
+            logging_utility.debug("Creating client for specific key (not cached).")
+            try:
+                return Entity(
+                    api_key=api_key,
+                    base_url=base_url,
+                )
+            except Exception as e:
+                logging_utility.error(
+                    "Failed to create specific project_david client: %s",
+                    e,
+                    exc_info=True,
+                )
+                if self.project_david_client:
+                    logging_utility.warning(
+                        "Falling back to default client due to error."
+                    )
+                    return self.project_david_client
+                else:
+                    raise RuntimeError(
+                        "Default project_david client is not initialized, and specific client creation failed."
+                    )
+        else:
+            if self.project_david_client:
+                logging_utility.debug(
+                    "Using default project_david client (no specific key provided)."
+                )
+                return self.project_david_client
+            else:
+                raise RuntimeError("Default project_david client is not initialized.")
+
+    @lru_cache(maxsize=32)
     def _get_openai_client(
         self, api_key: Optional[str], base_url: Optional[str] = None
     ) -> OpenAI:
@@ -224,56 +341,89 @@ class BaseInference(ABC):
         return self.assistant_id
 
     @property
-    def user_service(self):
-
-        return self._get_service(UserService)
+    def user_client(self):
+        return self._get_service(
+            UsersClient,
+            custom_params=[os.getenv("BASE_URL"), os.getenv("ADMIN_API_KEY")],
+        )
 
     @property
     def assistant_service(self):
-        return self._get_service(AssistantsClient)
+        return self._get_service(
+            AssistantsClient,
+            custom_params=[os.getenv("BASE_URL"), os.getenv("ADMIN_API_KEY")],
+        )
 
+    # ----------------------
+    # A tread is never created
+    # by processing logic
+    # -------------------------
     @property
     def thread_service(self):
-        return self._get_service(ThreadsClient)
+        return self._get_service(
+            ThreadsClient,
+            custom_params=[os.getenv("BASE_URL"), os.getenv("ADMIN_API_KEY")],
+        )
 
     @property
     def message_service(self):
-        return self._get_service(MessagesClient)
+        return self._get_service(
+            MessagesClient,
+            custom_params=[os.getenv("BASE_URL"), os.getenv("ADMIN_API_KEY")],
+        )
 
     @property
     def run_service(self):
-        return self._get_service(RunsClient)
+        return self._get_service(
+            RunsClient,
+            custom_params=[os.getenv("BASE_URL"), os.getenv("ADMIN_API_KEY")],
+        )
 
     @property
     def tool_service(self):
-        return self._get_service(ToolsClient)
+        return self._get_service(
+            ToolsClient,
+            custom_params=[os.getenv("BASE_URL"), os.getenv("ADMIN_API_KEY")],
+        )
 
     @property
     def platform_tool_service(self):
-        return self._get_service(PlatformToolService)
+        return self._get_service(
+            PlatformToolService,
+            custom_params=[os.getenv("BASE_URL"), os.getenv("ADMIN_API_KEY")],
+        )
 
     @property
     def action_client(self):
-        return self._get_service(ActionsClient)
+        return self._get_service(
+            ActionsClient,
+            custom_params=[os.getenv("BASE_URL"), os.getenv("ADMIN_API_KEY")],
+        )
+
+    @property
+    def vector_store_service(self):
+        return self._get_service(
+            VectorStoreClient,
+            custom_params=[os.getenv("BASE_URL"), os.getenv("ADMIN_API_KEY")],
+        )
+
+    @property
+    def files(self):
+        return self._get_service(
+            FileClient,
+            custom_params=[os.getenv("BASE_URL"), os.getenv("ADMIN_API_KEY")],
+        )
 
     @property
     def code_execution_client(self):
         return self._get_service(StreamOutput)
 
     @property
-    def vector_store_service(self):
-        return self._get_service(VectorStoreClient)
-
-    @property
-    def files(self):
-        return self._get_service(FileClient)
-
-    @property
     def conversation_truncator(self):
         return self._get_service(ConversationTruncator)
 
     # -------------------------------------------------
-    # ENTITIES STATE INFORMATION
+    # -ENTITIES STATE INFORMATION-
     # From time to time we need to pass
     # Some state information into PlatformToolService
     # This is the cleanest way to do that
@@ -741,7 +891,12 @@ class BaseInference(ABC):
     def handle_error(self, assistant_reply, thread_id, assistant_id, run_id):
         """Handle errors and store partial assistant responses."""
         if assistant_reply:
-            self.message_service.save_assistant_message_chunk(
+
+            client = self._get_project_david_client(
+                api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+            )
+
+            client.messages.save_assistant_message_chunk(
                 thread_id=thread_id,
                 content=assistant_reply,
                 role="assistant",
@@ -750,13 +905,23 @@ class BaseInference(ABC):
                 is_last_chunk=True,
             )
             logging_utility.info("Partial assistant response stored successfully.")
-            self.run_service.update_run_status(run_id, validator.StatusEnum.failed)
+
+            client = self._get_project_david_client(
+                api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+            )
+
+            client.runs.update_run_status(run_id, validator.StatusEnum.failed)
 
     def finalize_conversation(self, assistant_reply, thread_id, assistant_id, run_id):
         """Finalize the conversation by storing the assistant's reply."""
 
         if assistant_reply:
-            message = self.message_service.save_assistant_message_chunk(
+
+            client = self._get_project_david_client(
+                api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+            )
+
+            message = client.messages.save_assistant_message_chunk(
                 thread_id=thread_id,
                 content=assistant_reply,
                 role="assistant",
@@ -767,7 +932,11 @@ class BaseInference(ABC):
 
             logging_utility.info("Assistant response stored successfully.")
 
-            self.run_service.update_run_status(run_id, validator.StatusEnum.completed)
+            client = self._get_project_david_client(
+                api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+            )
+
+            client.runs.update_run_status(run_id, validator.StatusEnum.completed)
 
             return message
 
@@ -815,10 +984,14 @@ class BaseInference(ABC):
             if event_type == "cancelled":
                 return "cancelled"
 
+        client = self._get_project_david_client(
+            api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+        )
+
         def listen_for_cancellation():
             event_handler = EntitiesEventHandler(
-                run_service=self.run_service,
-                action_service=self.action_client,
+                run_service=client.runs,
+                action_service=client.actions,
                 event_callback=handle_event,
             )
             while not self._cancelled:
@@ -851,14 +1024,23 @@ class BaseInference(ABC):
         )
 
         # Update run status to 'action_required'
-        self.run_service.update_run_status(
+        client = self._get_project_david_client(
+            api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+        )
+
+        client.runs.update_run_status(
             run_id=run_id, new_status=validator.StatusEnum.pending_action
         )
         logging_utility.info(f"Run {run_id} status updated to action_required")
 
         # Now wait for the run's status to change from 'action_required'.
         while True:
-            run = self.run_service.retrieve_run(run_id)
+
+            client = self._get_project_david_client(
+                api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+            )
+
+            run = client.runs.retrieve_run(run_id)
             if run.status != "action_required":
                 break
             time.sleep(1)
@@ -965,7 +1147,12 @@ class BaseInference(ABC):
         """special case code interpreter output submission"""
 
         try:
-            self.message_service.submit_tool_output(
+
+            client = self._get_project_david_client(
+                api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+            )
+
+            client.messages.submit_tool_output(
                 thread_id=thread_id,
                 content=content,
                 role="tool",
@@ -1009,7 +1196,11 @@ class BaseInference(ABC):
             )
 
             # Update run status
-            self.run_service.update_run_status(
+            client = self._get_project_david_client(
+                api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+            )
+
+            client.runs.update_run_status(
                 run_id=run_id, new_status=validator.StatusEnum.pending_action
             )
             logging_utility.info(
@@ -1078,8 +1269,12 @@ class BaseInference(ABC):
             logging_utility.error("No content returned for action %s", action.id)
 
         try:
-            # Submit tool output
-            self.message_service.submit_tool_output(
+
+            client = self._get_project_david_client(
+                api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+            )
+
+            client.messages.submit_tool_output(
                 thread_id=thread_id,
                 content=content,
                 role="tool",
@@ -1098,8 +1293,12 @@ class BaseInference(ABC):
                 "Failed to submit tool output for action %s: %s", action.id, str(e)
             )
 
+            client = self._get_project_david_client(
+                api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+            )
+
             # Send the error message to the user
-            self.message_service.submit_tool_output(
+            client.messages.submit_tool_output(
                 thread_id=thread_id,
                 content=f"ERROR: {str(e)}",
                 role="tool",
@@ -1345,11 +1544,6 @@ class BaseInference(ABC):
             logging_utility.info(
                 "Streaming base64 previews for %d files...", len(uploaded_files)
             )
-            # Assuming EntitiesInternalInterface provides file access
-            # Ensure base URL is correctly configured
-            entities_base_url = os.getenv(
-                "ENTITIES_BASE_URL", "http://fastapi_cosmic_catalyst:9000"
-            )
 
             for file_meta in uploaded_files:  # Use file_meta again
                 file_id = file_meta.get("id")
@@ -1509,7 +1703,6 @@ class BaseInference(ABC):
 
         # Extract commands from the arguments dictionary
         commands = arguments_dict.get("commands", [])
-        bash_buffer = []
 
         accumulated_content = ""
 
@@ -1615,7 +1808,11 @@ class BaseInference(ABC):
 
         # Inject system reminder into context
 
-        self.message_service.create_message(
+        client = self._get_project_david_client(
+            api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+        )
+
+        client.messages.create_message(
             thread_id=thread_id,
             assistant_id=assistant_id,
             content=reminder,
@@ -1753,11 +1950,11 @@ class BaseInference(ABC):
             repeated requests with identical parameters.
         """
 
-        # interface = self.internal_sdk_interface()
+        client = self._get_project_david_client(
+            api_key=os.getenv("ENTITIES_API_KEY"), base_url=os.getenv("BASE_URL")
+        )
 
-        assistant = self.assistant_service.retrieve_assistant(assistant_id=assistant_id)
-
-        associated_tools = self.tool_service.list_tools(assistant_id=assistant_id)
+        assistant = client.assistants.retrieve_assistant(assistant_id=assistant_id)
 
         tools = self.tool_service.list_tools(
             assistant_id=assistant_id, restructure=True
@@ -1768,9 +1965,8 @@ class BaseInference(ABC):
 
         # Format the date and time as a string
         formatted_datetime = today.strftime("%Y-%m-%d %H:%M:%S")
-
         # Include the formatted date and time in the system message
-        conversation_history = self.message_service.get_formatted_messages(
+        conversation_history = client.messages.get_formatted_messages(
             thread_id,
             system_message="tools:"
             + str(tools)
@@ -1855,11 +2051,10 @@ class BaseInference(ABC):
 
         tool_name = fc_state.get("name")
         arguments_dict = fc_state.get("arguments")
-        processed = False  # Track if a tool was processed
 
         # --- Specific Platform Tool Handling ---
         if tool_name == "code_interpreter":
-            processed = True
+
             yield from self.handle_code_interpreter_action(
                 thread_id=thread_id,
                 run_id=run_id,
@@ -1868,7 +2063,6 @@ class BaseInference(ABC):
             )
 
         elif tool_name == "computer":
-            processed = True
             yield from self.handle_shell_action(
                 thread_id=thread_id,
                 run_id=run_id,
@@ -1878,7 +2072,7 @@ class BaseInference(ABC):
 
         # --- General Platform Tool Handling ---
         elif tool_name in PLATFORM_TOOLS:  # Assumes PLATFORM_TOOLS is defined
-            processed = True
+
             # Assumes SPECIAL_CASE_TOOL_HANDLING is defined
             if tool_name not in SPECIAL_CASE_TOOL_HANDLING:
                 # Standard platform tools
@@ -1900,7 +2094,7 @@ class BaseInference(ABC):
         # --- Consumer Tool Handling ---
         else:
             # Non-platform (consumer) tools
-            processed = True
+
             self._process_tool_calls(
                 thread_id=thread_id,
                 assistant_id=assistant_id,
@@ -1965,4 +2159,4 @@ class BaseInference(ABC):
     @lru_cache(maxsize=128)
     def cached_user_details(self, user_id):
         """Cache user details to avoid redundant API calls."""
-        return self.user_service.get_user(user_id)
+        return self.user_client.get_user(user_id)
