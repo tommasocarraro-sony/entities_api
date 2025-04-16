@@ -241,8 +241,8 @@ def function_call_handler(tool_name, arguments):
 
 
 create_db()
-client = Entity(base_url="http://localhost:9000", api_key=os.getenv("API_KEY"))
-user = client.users.retrieve_user('user_HkTZCaqKmvEOKFzQRfjtLR')
+client = Entity(base_url="http://localhost:9000", api_key="ea_zzCWjSYSRZFCXjh_jhqRn3HExNoXkZI8xn0Sbq5XYHw")
+user = client.users.retrieve_user('user_K55QgQVJEu0pmiGrExxuLc')
 thread = client.threads.create_thread(participant_ids=[user.id])
 assistant = client.assistants.retrieve_assistant("default")
 associate_tool_to_assistant(assistant.id, tool=RECOMMENDATION)
