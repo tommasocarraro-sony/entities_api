@@ -5,7 +5,7 @@ import os
 load_dotenv()
 os.environ.pop("DATABASE_URL", None)
 import chainlit as cl
-from data.my_functions.functions import RECOMMENDATION_QUERY, METADATA_QUERY, INTERACTION_QUERY
+from src.my_app.functions import RECOMMENDATION_QUERY, METADATA_QUERY, INTERACTION_QUERY
 from projectdavid_common.schemas.tools import ToolFunction
 import json
 from recbole.quick_start import load_data_and_model

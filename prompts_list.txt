@@ -1,0 +1,12 @@
+Hello, how are you today?
+What is your name?
+What can you do for me? What are your skills? Just a small summary of your skills without any examples.
+What is the starting date of the Second World War?
+Okay, let's begin with your tailored skills! Provide me the genres of item 4.
+Provide the title and release date of items 5 and 9.
+Provide the historical interactions of user 5.
+Summarize the tastes of this user according to these retrieved previous interactions.
+Provide some recommendations for user 5.
+Provide some horror movie recommendations for user 7.
+Provide 7 horror movie recommendations released prior to 1970 for user 5.
+Yes, please, explain the recommendations.

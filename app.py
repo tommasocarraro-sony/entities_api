@@ -5,7 +5,7 @@ import os
 load_dotenv()
 os.environ.pop("DATABASE_URL", None)
 import chainlit as cl
-from data.my_functions.functions import RECOMMENDATION, METADATA
+from src.my_app.functions import RECOMMENDATION, METADATA
 
 client = Entity(base_url="http://localhost:9000", api_key=os.getenv("API_KEY"))
 user = client.users.create_user(name='chainlit_user')

@@ -771,15 +771,17 @@ METADATA = {
     "function": {
         "name": "get_item_metadata",
         "description": (
-            "Returns metadata for the given item ID. Specific metadata might be requested. If no specification is given"
-            "all the metadata available for the item is returned."
+            "Returns metadata for the given item ID(s). Specific metadata might be requested. "
+            "If no specification is given"
+            "all the metadata available for the item(s) is returned."
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "item": {
-                    "type": "integer",
-                    "description": "Item ID for which the metadata has to be retrieved."
+                "items": {
+                    "type": "array",
+                    "items": {"type": "int"},
+                    "description": "Item ID(s) for which the metadata has to be retrieved."
                 },
                 "specification": {
                     "type": "array",
@@ -822,122 +824,129 @@ METADATA = {
             "Provide all the information you know about item 47": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 47,
+                    "item ": [47],
                     "specification": ["title", "avg_rating", "description", "genres", "director", "producer", "duration", "release_date", "actors", "country", "imdb_rating", "popularity"]
                 }
             },
-            "What are the actors of item 54?": {
+            "What are the actors of item 54 and 65?": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 54,
+                    "items": [54, 65],
                     "specification": ["actors"]
                 }
             },
             "What are the director, genres and country of item 98?": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 98,
+                    "items": [98],
                     "specification": ["director", "genres", "country"]
                 }
             },
-            "Give me the release date and duration for item 12": {
+            "Give me the release date and duration for item 12 and 4": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 12,
+                    "items": [12, 4],
                     "specification": ["release_date", "duration"]
                 }
             },
-            "Show the IMDb rating and popularity of item 200": {
+            "Show the IMDb rating and popularity of item 200, 123, and 45": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 200,
+                    "items": [200, 123, 45],
                     "specification": ["imdb_rating", "popularity"]
                 }
             },
             "Provide the title and average rating of item 77": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 77,
+                    "items": [77],
                     "specification": ["title", "avg_rating"]
                 }
             },
-            "Tell me about the genres and producer of item 150": {
+            "Tell me about the genres and producer of item 150 and 56": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 150,
+                    "items": [150, 56],
                     "specification": ["genres", "producer"]
                 }
             },
-            "What is the description of item 33?": {
+            "What is the description of item 33, 4, and 89?": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 33,
+                    "items": [33, 4, 89],
                     "specification": ["description"]
                 }
             },
             "Provide information for item 205, including actors and director": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 205,
+                    "items": [205],
                     "specification": ["actors", "director"]
                 }
             },
             "What are the genres and country for item 82?": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 82,
+                    "items": [82],
                     "specification": ["genres", "country"]
                 }
             },
-            "Show me the title, director, and popularity of item 120": {
+            "Show me the title, director, and popularity of item 120 and 90": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 120,
+                    "items": [120, 90],
                     "specification": ["title", "director", "popularity"]
                 }
             },
-            "Give me the average rating and duration for item 50": {
+            "Give me the average rating and duration for item 50, 34, 56, and 78": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 50,
+                    "items": [50, 34, 56, 78],
                     "specification": ["avg_rating", "duration"]
                 }
             },
             "Tell me the country and release date for item 199": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 199,
+                    "items": [199],
                     "specification": ["country", "release_date"]
                 }
             },
             "What is the producer and description of item 105?": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 105,
+                    "items": [105],
                     "specification": ["producer", "description"]
                 }
             },
-            "Provide the title and genres for item 60": {
+            "Provide the title and genres for item 60 and 34": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 60,
+                    "items": [60, 34],
                     "specification": ["title", "genres"]
                 }
             },
             "Give me the actors and IMDb rating of item 45": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 45,
+                    "items": [45],
                     "specification": ["actors", "imdb_rating"]
                 }
             },
             "What is the release date of item 111?": {
                 "name": "get_item_metadata",
                 "arguments": {
-                    "item": 111,
+                    "items": [111],
                     "specification": ["release_date"]
                 }
-            }
+            },
+            "What do you know about item 11?": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "items": [11],
+                    "specification": ["title", "avg_rating", "description", "genres", "director", "producer", "duration", "release_date", "actors", "country", "imdb_rating", "popularity"]
+                }
+            },
         }
     }
 }
@@ -996,6 +1005,64 @@ INTERACTION_QUERY = {
                 "name": "get_past_interactions",
                 "arguments": {
                     "query": "SELECT items FROM interactions WHERE user_id = 67"
+                }
+            }
+        }
+    }
+}
+
+INTERACTION = {
+"function": {
+        "name": "get_interacted_items",
+        "description": (
+            "Returns a list of previously interacted item IDs for the given user ID."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "type": "integer",
+                    "description": "User for which the historical interactions have to be "
+                                   "retrieved."
+                }
+            }
+        },
+        "required": ["user"],
+        "examples": {
+            "Provide me the historical interactions of user 45.": {
+                "name": "get_past_interactions",
+                "arguments": {
+                    "user": 45
+                }
+            },
+            "What are the items user 14 interacted in the past?": {
+                "name": "get_past_interactions",
+                "arguments": {
+                    "user": 14
+                }
+            },
+            "List all previously interacted items for user 88.": {
+                "name": "get_past_interactions",
+                "arguments": {
+                    "user": 88
+                }
+            },
+            "Show me the past interaction history of user 32.": {
+                "name": "get_past_interactions",
+                "arguments": {
+                    "user": 32
+                }
+            },
+            "Retrieve interaction records for user 101.": {
+                "name": "get_past_interactions",
+                "arguments": {
+                    "user": 101
+                }
+            },
+            "Which items has user 67 interacted with before?": {
+                "name": "get_past_interactions",
+                "arguments": {
+                    "user": 67
                 }
             }
         }
