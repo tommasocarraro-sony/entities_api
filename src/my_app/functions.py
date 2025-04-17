@@ -156,6 +156,11 @@ def get_interacted_items(params, db_name, return_list=False):
         if len(result) > 10:
             # if there are more than 10 interacted items, we take the most recent ones
             result = result[-10:]
+            mess = (f"Since user {user} interacted with more than 10 items in the past, for simplicity "
+                    "and to avoid verbosity, "
+                    "these are his/her most recent 10 interactions: ")
+        else:
+            mess = (f"These are all the items user {user} interacted in the past: ")
 
         if result and not return_list:
             response_dict = get_item_metadata(params={'items': result,
@@ -166,7 +171,7 @@ def get_interacted_items(params, db_name, return_list=False):
 
             return json.dumps({
                 "status": "success",
-                "message": f"These are some recent interactions of user {user}: {response_dict}. "
+                "message": f"{mess}: {response_dict}. "
                            f"Please, includes the item ID when listing "
                            f"the interactions.",
             })

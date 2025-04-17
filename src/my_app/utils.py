@@ -202,7 +202,7 @@ def define_sql_query(table, conditions):
             else:
                 query_parts.append(f"release_date = {release_date}")
 
-            requested_field = "item_id"
+        requested_field = "item_id"
     elif table == "items" and 'specification' in conditions and 'items' in conditions:
         specification = conditions['specification']
         items = conditions['items']
@@ -214,3 +214,31 @@ def define_sql_query(table, conditions):
     sql_query = f"SELECT {requested_field} FROM {table} WHERE {'AND '.join(query_parts)}"
     print("\n" + sql_query + "\n")
     return sql_query
+
+
+def create_md_from_item(item_file):
+    output_file = f'{item_file[:-5]}.md'
+
+    # Create a dictionary to store item metadata
+    item_info = {}
+
+    # Read the metadata file
+    with open(item_file, 'r', encoding='utf-8') as meta:
+        next(meta)  # Skip header
+        for line in meta:
+            parts = line.strip().split('\t')
+            item_id = parts[0]
+            title = parts[1]
+            release_year = parts[2]
+            genres = parts[3]
+            item_info[item_id] = (title, release_year, genres)
+
+    # Write to a markdown file
+    with open(output_file, 'w', encoding='utf-8') as md:
+        for item_id, (title, release_year, genres) in item_info.items():
+            md.write(f"## Item ID: {item_id}\n\n")
+            md.write(f"- Title: {title}\n")
+            md.write(f"- Release Year: {release_year}\n")
+            md.write(f"- Genres: {genres}\n\n")
+
+    print("Markdown file created!")
