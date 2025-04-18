@@ -15,9 +15,9 @@ try:
     from projectdavid import Entity
     from projectdavid_common import ValidationInterface
 
-    from entities_api.constants.assistant import BASE_TOOLS, DEFAULT_MODEL
-    from entities_api.services.logging_service import LoggingUtility
-    from entities_api.system_message.assembly import assemble_instructions
+    from src.api.entities_api.constants.assistant import BASE_TOOLS, DEFAULT_MODEL
+    from src.api.entities_api.services.logging_service import LoggingUtility
+    from src.api.entities_api.system_message.assembly import assemble_instructions
 except ImportError as e:
     print(f"Error importing required modules: {e}")
     print(

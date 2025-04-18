@@ -22,7 +22,7 @@ try:
     from projectdavid_common import UtilsInterface
     from projectdavid_common.utilities.logging_service import LoggingUtility
 
-    from entities_api.models.models import ApiKey, User
+    from src.api.entities_api.models.models import ApiKey, User
 
 except ImportError as e:
     print(f"Error: Could not import project modules: {e}")

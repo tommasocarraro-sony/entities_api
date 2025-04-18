@@ -34,7 +34,7 @@ attach = client.vectors.attach_vector_store_to_assistant(
 
 save_file_to_store = client.vectors.add_file_to_vector_store(
     vector_store_id=store.id,
-    file_path='./data/recsys/ml-100k/ml-100k.md'
+    file_path='../data/recsys/ml-100k/ml-100k.md'
 )
 
 @on_message

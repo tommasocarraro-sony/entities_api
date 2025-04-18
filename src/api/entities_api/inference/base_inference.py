@@ -611,8 +611,8 @@ class BaseInference(ABC):
             for key, value in json_data["arguments"].items():
                 if not isinstance(key, str):
                     return False
-                if isinstance(value, (list, dict)):
-                    return False  # Prevent nested structures per guidelines
+                # if isinstance(value, (list, dict)):
+                #     return False  # Prevent nested structures per guidelines
 
             return True
 

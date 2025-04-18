@@ -17,7 +17,7 @@ import torch
 # todo create a summary of a user based on its past interactions, depict the user based on his/her past interactions
 
 config, model, dataset, train_data, valid_data, test_data = load_data_and_model(
-    model_file='./data/recsys/ml-100k/model.pth',
+    model_file='../data/recsys/ml-100k/model.pth',
 )
 
 def create_db():
@@ -27,7 +27,7 @@ def create_db():
     cursor.execute('''CREATE TABLE IF NOT EXISTS movie_metadata (item_id INTEGER PRIMARY KEY, title TEXT, release_date INTEGER, genres TEXT)''')
 
     # load data
-    with open('./data/recsys/ml-100k/ml-100k.item', 'r', encoding='utf-8') as f:
+    with open('../data/recsys/ml-100k/ml-100k.item', 'r', encoding='utf-8') as f:
         first_line = True
         for line in f:
             if first_line:
@@ -50,7 +50,7 @@ def create_db():
 
     # Read the file and build the dictionary
     user_interactions = {}
-    with open('./data/recsys/ml-100k/ml-100k.inter', 'r') as f:
+    with open('../data/recsys/ml-100k/ml-100k.inter', 'r') as f:
         first_line = True
         for line in f:
             if first_line:
