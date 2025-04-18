@@ -1,34 +1,25 @@
 # entities_api/inference/handlers/hyperbolic_handler.py
-
 from typing import Any, Generator, Optional, Type
 
 from projectdavid_common.utilities.logging_service import LoggingUtility
 
-from entities_api.inference.hypherbolic.hyperbolic_deepseek_r1 import \
-    HyperbolicR1Inference
-from entities_api.inference.hypherbolic.hyperbolic_deepseek_v3 import \
-    HyperbolicDeepSeekV3Inference
-from entities_api.inference.hypherbolic.hyperbolic_llama_3_3 import \
-    HyperbolicLlama33Inference
-from entities_api.inference.hypherbolic.hyperbolic_quen_qwq_32b import \
-    HyperbolicQuenQwq32bInference
+from entities_api.inference.deepseek.deepseek_chat_inference import \
+    DeepSeekChatInference
 from entities_api.inference.inference_arbiter import InferenceArbiter
 
 logging_utility = LoggingUtility()
 
 
-class HyperbolicHandler:
+class DeepseekHandler:
     """
     Pure synchronous dispatcher for Hyperbolic model requests. Delegates to
     concrete handler classes based on model ID. Contains no business logic.
     """
 
     SUBMODEL_CLASS_MAP: dict[str, Type[Any]] = {
-        "deepseek-v3": HyperbolicDeepSeekV3Inference,
-        "deepseek-ai/DeepSeek-V3-0324": HyperbolicDeepSeekV3Inference,
-        "deepseek-r1": HyperbolicR1Inference,
-        "meta-llama/": HyperbolicLlama33Inference,
-        "Qwen/": HyperbolicQuenQwq32bInference,
+        "deepseek-chat": DeepSeekChatInference,
+        "DeepSeek-V3-0324": DeepSeekChatInference,
+        "deepseek-reasoner": DeepSeekChatInference,
     }
 
     def __init__(self, arbiter: InferenceArbiter):
@@ -39,7 +30,7 @@ class HyperbolicHandler:
         logging_utility.info("HyperbolicHandler dispatcher initialized.")
 
     def _get_specific_handler_instance(self, unified_model_id: str) -> Any:
-        prefix = "hyperbolic/"
+        prefix = "deepseek-ai/"
         sub_model_id = (
             unified_model_id[len(prefix) :].lower()
             if unified_model_id.lower().startswith(prefix)

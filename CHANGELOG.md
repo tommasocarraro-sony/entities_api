@@ -1,3 +1,95 @@
+# [1.5.0](https://github.com/frankie336/entities_api/compare/v1.4.0...v1.5.0) (2025-04-18)
+
+
+### Features
+
+* basic_vector_embeddings_search ([e5def53](https://github.com/frankie336/entities_api/commit/e5def53adbe148f6d0feb843f3458659a8542c91))
+
+# [1.4.0](https://github.com/frankie336/entities_api/compare/v1.3.2...v1.4.0) (2025-04-17)
+
+
+### Features
+
+* Integrate DeepSeek API. ([e6c1dae](https://github.com/frankie336/entities_api/commit/e6c1daeb2201ae63d4e07daf67dc923b00e69a2a))
+
+## [1.3.2](https://github.com/frankie336/entities_api/compare/v1.3.1...v1.3.2) (2025-04-17)
+
+
+### Bug Fixes
+
+* upgrade pd client. ([ae0569b](https://github.com/frankie336/entities_api/commit/ae0569bece4174112225fa5ed2181160f2f5961f))
+
+## [1.3.1](https://github.com/frankie336/entities_api/compare/v1.3.0...v1.3.1) (2025-04-17)
+
+
+### Bug Fixes
+
+* TogetherAIHandler routing issues. ([be6c386](https://github.com/frankie336/entities_api/commit/be6c38684f81ddd5759c1adad7e636f873d08dbc))
+
+# [1.3.0](https://github.com/frankie336/entities_api/compare/v1.2.1...v1.3.0) (2025-04-17)
+
+
+### Bug Fixes
+
+* Normalize your route keys to lowercase in SUBMODEL_CLASS_MAP ([a8d1f51](https://github.com/frankie336/entities_api/commit/a8d1f51719e3c9f79527145ead9329562db6e9ce))
+
+
+### Features
+
+* Add support for new models ([4523191](https://github.com/frankie336/entities_api/commit/45231911a3f24f0af7989197c6e4fb0bd017551b))
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+# [1.2.0](https://github.com/frankie336/entities_api/compare/v1.1.0...v1.2.0) (2025-04-15)
+
+## [1.2.1](https://github.com/frankie336/entities_api/compare/v1.2.0...v1.2.1) (2025-04-16)
+
+
+### Bug Fixes
+
+* Moved admin .env ([3c2834e](https://github.com/frankie336/entities_api/commit/3c2834eb90256349c22c24ea9146c750013f1c36))
+
+
+### ✨ Added
+- Introduced `scripts/generate_docker_compose.py` and `scripts/generate_docker_compose_dev.py`:
+  - Automatically generate `docker-compose.yml` and `.env` files if they do not exist.
+  - Inject unique, secure values for `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD`, and `DEFAULT_SECRET_KEY`.
+  - Generate and map a `unique_secret` for custom Docker network binding.
+
+- Added fallback `.example` templates:
+  - `docker-compose.dev.example.yml` – now tracked in source control.
+  - Redacts all secrets and replaces them with `REPLACE_ME` tokens for dev visibility and safety.
+
+### 🔧 Changed
+- `start.py` (DockerManager):
+  - Aligned `.env` generation to source values directly from `docker-compose.yml` (or fallback defaults).
+  - Dynamically constructs `DATABASE_URL` and `SPECIAL_DB_URL` using parsed credentials.
+  - Added logic to detect `docker-compose.yml` presence and skip regeneration if already defined.
+  - Ensured platform-aware path handling for mounted volumes (`SHARED_PATH` detection).
+  - Added validation for `docker-compose.dev.yml` parsing via PyYAML.
+
+### 🧪 Improved
+- Hardened Docker secret management:
+  - Secrets are never committed to source control.
+  - All auto-generated credentials use `uuid.uuid4().hex` or `secrets.token_urlsafe(...)` for high entropy.
+  - `.dockerignore` and `.gitignore` now explicitly exclude sensitive runtime files.
+
+
+
+### Bug Fixes
+
+* env generate_docker_compose.py ([9ddde9f](https://github.com/frankie336/entities_api/commit/9ddde9f170f1f3624585baf3fdab29e61dd1023d))
+
+
+### Features
+
+* dynamic-unique-env-secrets ([13b556f](https://github.com/frankie336/entities_api/commit/13b556fdbca04bfdf65de44263345f45dafd0bea))
+
 # [1.1.0](https://github.com/frankie336/entities_api/compare/v1.0.0...v1.1.0) (2025-04-15)
 
 
