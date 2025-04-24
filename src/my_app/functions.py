@@ -45,15 +45,17 @@ def get_top_k_recommendations(params, db_name):
             create_recbole_environment(os.getenv("RECSYS_MODEL_PATH"))
         uid_series = dataset.token2id(dataset.uid_field, [str(user)])
         matched = None
+        corrections = []
+        failed_corrections = []
         # check if it is a constrained recommendation
         if 'filters' in params:
             matched = False
             filters = params.get('filters')
             # execute sql query based on the filters to get items that satisfy the filters
             try:
-                sql_query = define_sql_query("items", filters)
+                sql_query, corrections, failed_corrections = define_sql_query("items", filters)
                 result = execute_sql_query(db_name, sql_query)
-                # invoke the recommender system to get rating of all items satisfying the given conditions
+                # invoke the recommender system to get ratings of all items satisfying the given conditions
                 item_ids = [str(row[0]) for row in result]
                 all_scores = full_sort_scores(uid_series, model, test_data, device=config['device'])
                 satisfying_item_scores = all_scores[
@@ -63,6 +65,13 @@ def get_top_k_recommendations(params, db_name):
                 matched = True
             except ValueError as e:
                 print(e)
+                # if no filters worked, then we perform a standard recommendation and we
+                # can directly generate the ranking for the given user
+                topk_score, topk_iid_list = full_sort_topk(uid_series, model, test_data, k=k,
+                                                           device=config['device'])
+                external_item_list = dataset.id2token(dataset.iid_field, topk_iid_list.cpu())[0]
+            if result is None:
+                matched = False
                 # if no filters worked, then we perform a standard recommendation and we
                 # can directly generate the ranking for the given user
                 topk_score, topk_iid_list = full_sort_topk(uid_series, model, test_data, k=k,
@@ -89,9 +98,11 @@ def get_top_k_recommendations(params, db_name):
 
         print("\n" + str(interaction_dict) + "\n")
         print("\n" + str(response_dict) + "\n")
+        failed_corr_text = f"Note that corrections for these fields have been tried but failed: {failed_corrections}, so the recommendation output will not take these filters into condideration."
+        void_str = ''
         return json.dumps({
             "status": "success",
-            "message": f"{f'The given conditions did not match any item in the database. Hence, standard recommendations (without filters) for user {user} have been generated. ' if matched is not None and not matched else ''}Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. Please, use all the information included in the generated dictionary when listing recommendations. After listing the recommended items, ask the user if she/he would like to have an explanation for the recommendations. If the answer is positive, try to provide an explanation for the recommendations based on the similarities between the recommended items and the items the user interacted in the past, that are: {interaction_dict}. To explain recommendations, you could also use additional information that you might know in your pre-trained knowledge."
+            "message": f"{f'The given conditions did not match any item in the database. Hence, standard recommendations (without filters) for user {user} have been generated. ' if matched is not None and not matched else ''}{f'Note that the following corrections have been made to retrieve recommendations: {corrections}. Please, explain the user that you have been able to provide recommendations only thanks to these adjustments. {failed_corr_text if failed_corrections else void_str}' if corrections else ''}Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. Please, use all the information included in the generated dictionary when listing recommendations. After listing the recommended items, ask the user if she/he would like to have an explanation for the recommendations. If the answer is positive, try to provide an explanation for the recommendations based on the similarities between the recommended items and the items the user interacted in the past, that are: {interaction_dict}. To explain recommendations, you could also use additional information that you might know in your pre-trained knowledge."
         })
     else:
         return json.dumps({
@@ -113,7 +124,7 @@ def get_item_metadata(params, db_name, return_dict=False):
     if 'items' in params and 'specification' in params:
         items = params.get('items')
         specification = params.get('specification')
-        sql_query = define_sql_query("items", {"items": items, "specification": specification})
+        sql_query, _, _ = define_sql_query("items", {"items": items, "specification": specification})
         result = execute_sql_query(db_name, sql_query)
 
         if result and not return_dict:
@@ -161,7 +172,7 @@ def get_interacted_items(params, db_name, return_list=False):
     """
     if 'user' in params:
         user = params.get('user')
-        sql_query = define_sql_query("interactions", params)
+        sql_query, _, _ = define_sql_query("interactions", params)
         result = execute_sql_query(db_name, sql_query)[0][0].split(",")
 
         if len(result) > 10:

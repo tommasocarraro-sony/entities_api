@@ -234,6 +234,7 @@ def define_sql_query(table, conditions):
     :return: SQL query string ready to be executed
     """
     query_parts = []
+    corrections, failed_corrections = [], []
     requested_field = ""
     if table == "interactions":
         if 'user' in conditions:
@@ -247,10 +248,10 @@ def define_sql_query(table, conditions):
                                'release_date' in conditions or 'duration' in conditions or
                                'imdb_rating' in conditions):
         # process textual features
-        process_textual("genres", conditions, genres_list, query_parts)
-        process_textual("actors", conditions, actors_list, query_parts)
-        process_textual("director", conditions, directors_list, query_parts)
-        process_textual("producer", conditions, producers_list, query_parts)
+        process_textual("genres", conditions, genres_list, query_parts, corrections, failed_corrections)
+        process_textual("actors", conditions, actors_list, query_parts, corrections, failed_corrections)
+        process_textual("director", conditions, directors_list, query_parts, corrections, failed_corrections)
+        process_textual("producer", conditions, producers_list, query_parts, corrections, failed_corrections)
 
         # process numerical features
         process_numerical("release_date", conditions, query_parts)
@@ -264,16 +265,16 @@ def define_sql_query(table, conditions):
         requested_field = ", ".join(specification)
         query_parts.append(f"item_id IN ({', '.join([str(i) for i in items])})")
     else:
-        return None
+        return None, corrections, failed_corrections
     if query_parts:
         sql_query = f"SELECT {requested_field} FROM {table} WHERE {'AND '.join(query_parts)}"
         print("\n" + sql_query + "\n")
-        return sql_query
+        return sql_query, corrections, failed_corrections
     else:
-        raise ValueError("No matching conditions found in the database.")
+        raise ValueError(f"No matching conditions found in the database, even with the following corrections: {corrections}")
 
 
-def process_textual(feature, conditions, names_list, query_parts):
+def process_textual(feature, conditions, names_list, query_parts, corrections, failed_corrections):
     """
     Process a textual feature for creating the SQL query.
 
@@ -281,6 +282,8 @@ def process_textual(feature, conditions, names_list, query_parts):
     :param conditions: the filters provided by the user in the prompt
     :param names_list: list of valid names
     :param query_parts: str where to append the query part processed by this functions
+    :param corrections: list of corrections performed thanks to fuzzy matching
+    :param failed_corrections: list of failed corrections
     """
     if feature in conditions:
         f = conditions[feature]
@@ -289,7 +292,11 @@ def process_textual(feature, conditions, names_list, query_parts):
             f_corrected = correct_name(f_, names_list)
             if f_corrected is None:
                 print(f"ERROR: {f_} is not a valid label for feature {feature}")
+                failed_corrections.append(f_)
                 continue  # if the name is not valid, we do not perform the query with that name
+            if f_corrected != f_:
+                print(f"Corrected name {f_} with name {f_corrected}")
+                corrections.append(f"{f_} -> {f_corrected}")
             query_parts.append(f"LOWER({feature}) LIKE '%{f_corrected.lower()}%'")
 
 
@@ -300,7 +307,6 @@ def correct_name(input_name, candidates, threshold=70):
     print(f"Trying correcting name {input_name}")
     match, score, _ = process.extractOne(input_name, candidates)
     if score >= threshold:
-        print(f"Corrected name {input_name} with name {match}")
         return match
     print(f"Failed to correct name {input_name}")
     return None
