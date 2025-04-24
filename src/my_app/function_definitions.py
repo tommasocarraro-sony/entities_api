@@ -19,7 +19,7 @@ RECOMMENDATION = {
                 },
                 "filters": {
                     "type": "object",
-                    "description": "Optional filters that specify the conditions the recommended items must satisfy.",
+                    "description": "Optional filters that specify the conditions the recommended items must satisfy. These filters will be converted to WHERE clauses of SQL queries that have to be executed to get item IDs of items satisfying the user conditions before invoking a recommender system.",
                     "properties": {
                         "actors": {
                             "type": "array",
@@ -333,6 +333,345 @@ RECOMMENDATION = {
                         "k": 5,
                         "filters": {
                             "genres": ["sci-fi"]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+RECOMMENDATION_VECTOR = {
+    "function": {
+        "name": "get_recommendations_by_description",
+        "description": (
+            "Similar to get_top_k_recommendations() but to be used when the user asks for "
+            "item recommendations based on a prompted description that is not just about filtering"
+            "metadata. This function should also be used when the user prompt is "
+            "ambiguous or challenging."
+            "Similarly to get_top_k_recommendations(), it returns a ranking of recommended item IDs "
+            "for the specified user ID. "
+            "If some conditions are given in the user request, the returned items must satisfy "
+            "these conditions. This function executes a vector store search to get items similar"
+            "to the provided description. Then, the recommender system is invoked to generate a "
+            "ranking on the retrieved items for the given user ID."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "type": "integer",
+                    "description": "User ID for which the recommendations have to be retrieved."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Query to be performed against the vector search. This has to be extracted from the user prompt."
+                },
+                "filters": {
+                    "type": "object",
+                    "description": "Optional filters that specify the conditions the recommended items must satisfy. This filters will be converted to Qdrant filters for constrained vector store search.",
+                    "properties": {
+                        "actors": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of actor names to filter by."
+                        },
+                        "genres": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of movie genres to filter by."
+                        },
+                        "director": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of directors to filter by."
+                        },
+                        "producer": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of producers to filter by."
+                        },
+                        # "country": {
+                        #     "type": "string",
+                        #     "description": "The country of origin for the movie (e.g., 'USA')."
+                        # },
+                        # "avg_rating": {
+                        #     "type": "object",
+                        #     "properties": {
+                        #         "request": {
+                        #             "type": "string",
+                        #             "enum": ["higher", "lower"],
+                        #             "description": "Whether to search for movies with high or low average ratings."
+                        #         },
+                        #         "threshold": {
+                        #             "type": "number",
+                        #             "description": "Threshold for average rating (between 1 and 5). "
+                        #                            "If not explicitly provided in the request, try to infer it."
+                        #                            "For example, if the user asks for highly rated movies, "
+                        #                            "the threshold must be 4."
+                        #         }
+                        #     },
+                        #     "required": ["request", "threshold"]
+                        # },
+                        "imdb_rating": {
+                            "type": "object",
+                            "properties": {
+                                "request": {
+                                    "type": "string",
+                                    "enum": ["higher", "lower"],
+                                    "description": "Whether to search for movies with high or low IMDb ratings. "
+                                                   "If not explicitly provided in the request, try to infer it."
+                                                   "For example, if the user asks for highly IMDb rated movies, "
+                                                   "the threshold must be 8."
+                                },
+                                "threshold": {
+                                    "type": "number",
+                                    "description": "Threshold for IMDb rating (between 1 and 10)."
+                                }
+                            },
+                            "required": ["request", "threshold"]
+                        },
+                        "duration": {
+                            "type": "object",
+                            "properties": {
+                                "request": {
+                                    "type": "string",
+                                    "enum": ["higher", "lower"],
+                                    "description": "Whether to search for longer or shorter movie durations."
+                                },
+                                "threshold": {
+                                    "type": "integer",
+                                    "description": "Duration in minutes (e.g., 90 for 1h30min)."
+                                                   "If not explicitly provided in the request, try to infer it."
+                                                   "For example, if the user asks for long movies, "
+                                                   "the threshold must be 120 (e.g., for 2h movies). Instead, if the "
+                                                   "user asks for short movies, the threshold must be 30."
+                                }
+                            },
+                            "required": ["request", "threshold"]
+                        },
+                        "release_date": {
+                            "oneOf": [
+                                {
+                                    "type": "integer",
+                                    "description": "Exact release year (e.g., 1994)."
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "request": {
+                                            "type": "string",
+                                            "enum": ["higher", "lower"],
+                                            "description": "Whether to search for more recent or older releases."
+                                        },
+                                        "threshold": {
+                                            "type": "integer",
+                                            "description": "Year threshold (e.g., 2000)."
+                                                           "If not explicitly provided in the request, try to infer it."
+                                                           "For example, if the user asks for recent movies, "
+                                                           "the threshold must be 2000. If the user asks for old "
+                                                           "movies, the threshold must be 1980."
+                                        }
+                                    },
+                                    "required": ["request", "threshold"]
+                                }
+                            ]
+                        },
+                        # "popularity": {
+                        #     "type": "string",
+                        #     "enum": ["popular", "unpopular"],
+                        #     "description": "Whether to filter for popular or unpopular movies."
+                        # }
+                    },
+                    "examples": {
+                        "Filters for highly IMDb rated sci-fi movies starring Tom Cruise": {
+                            "filters": {
+                                "actors": ["Tom Cruise"],
+                                "genres": ["sci-fi"],
+                                "imdb_rating": {
+                                    "request": "higher",
+                                    "threshold": 8
+                                }
+                            }
+                        },
+                        "Filters for movies starring Tom Cruise and Emily Blunt, belonging to sci-fi and action genres, and with an IMDb rating higher than 7": {
+                            "filters": {
+                                "actors": ["Tom Cruise", "Emily Blunt"],
+                                "genres": ["sci-fi", "action"],
+                                "imdb_rating": {
+                                    "request": "higher",
+                                    "threshold": 7
+                                }
+                            }
+                        },
+                        "Filters for short comedy movies": {
+                            "filters": {
+                                "genres": ["comedy"],
+                                "duration": {
+                                    "request": "lower",
+                                    "threshold": 30
+                                }
+                            }
+                        },
+                        "Filters for action movies lasting more than 1 hour and 30 minutes. This is the content of the \"filters\" field for this kind of request": {
+                            "genres": ["action"],
+                            "duration": {
+                                "request": "higher",
+                                "threshold": 90
+                            }
+                        },
+                        # "Filters for old but popular movies": {
+                        #     "filters": {
+                        #         "release_date": {
+                        #             "request": "lower",
+                        #             "threshold": 1980
+                        #         },
+                        #         "popularity": "popular"
+                        #     }
+                        # },
+                        "Filters for long movies directed by Christopher Nolan and recently released": {
+                            "filters": {
+                                "director": ["Christopher Nolan"],
+                                "duration": {
+                                    "request": "higher",
+                                    "threshold": 120
+                                },
+                                "release_date": {
+                                    "request": "higher",
+                                    "threshold": 2000
+                                }
+                            }
+                        },
+                        # "Filters for movies with a bad average rating in the platform": {
+                        #     "filters": {
+                        #         "avg_rating": {
+                        #             "request": "lower",
+                        #             "threshold": 2
+                        #         }
+                        #     }
+                        # },
+                        # "Filters for movies from France": {
+                        #     "filters": {
+                        #         "country": "France"
+                        #     }
+                        # },
+                        # "Filters for movies starring Leonardo DiCaprio, belonging to sci-fi and thriller genres, and with a high average rating on the platform": {
+                        #     "filters": {
+                        #         "actors": ["Leonardo DiCaprio"],
+                        #         "genres": ["sci-fi", "thriller"],
+                        #         "director": ["Christopher Nolan"],
+                        #         "avg_rating": {
+                        #             "request": "higher",
+                        #             "threshold": 4
+                        #         }
+                        #     }
+                        # },
+                        # "Filters for romantic short old movies from France": {
+                        #     "filters": {
+                        #         "genres": ["romance"],
+                        #         "country": "France",
+                        #         "duration": {
+                        #             "request": "lower",
+                        #             "threshold": 30
+                        #         },
+                        #         "release_date": {
+                        #             "request": "lower",
+                        #             "threshold": 1980
+                        #         }
+                        #     }
+                        # },
+                        "Filters for recent animation movies produced by Pixar": {
+                            "filters": {
+                                "genres": ["animation"],
+                                "producer": ["Pixar"],
+                                "release_date": {
+                                    "request": "higher",
+                                    "threshold": 2000
+                                }
+                            }
+                        },
+                        # "Filters for italian action movies with a low average rating on the platform": {
+                        #     "filters": {
+                        #         "genres": ["action"],
+                        #         "country": "Italy",
+                        #         "avg_rating": {
+                        #             "request": "lower",
+                        #             "threshold": 2
+                        #         }
+                        #     }
+                        # },
+                        "Filters for old thriller movies directed by David Fincher": {
+                            "filters": {
+                                "genres": ["thriller"],
+                                "director": ["David Fincher"],
+                                "release_date": {
+                                    "request": "lower",
+                                    "threshold": 1980
+                                }
+                            }
+                        },
+                        "Filters for comedy movies produced by Judd Apatow and Will Ferrell": {
+                            "filters": {
+                                "genres": ["comedy"],
+                                "producer": ["Judd Apatow", "Will Ferrell"]
+                            }
+                        },
+                        # "Filters for old historical and drama movies with a high average rating on the platform but an IMDb rating lower than 6": {
+                        #     "filters": {
+                        #         "genres": ["history", "drama"],
+                        #         "avg_rating": {
+                        #             "request": "higher",
+                        #             "threshold": 4
+                        #         },
+                        #         "imdb_rating": {
+                        #             "request": "lower",
+                        #             "threshold": 6
+                        #         },
+                        #         "release_date": {
+                        #             "request": "lower",
+                        #             "threshold": 1980
+                        #         }
+                        #     }
+                        # },
+                        "Filters for movies released in 1994": {
+                            "filters": {
+                                "genres": ["action"],
+                                "release_date": 1994
+                            }
+                        }
+                    }
+                }
+            },
+            "required": ["user"],
+            "examples": {
+                "Provide recommendations for user 14 for films with a whimsical tone but dark undertones, likely animated and aimed at children but emotionally traumatic for adults.": {
+                    "name": "get_recommendations_by_description",
+                    "arguments": {
+                        "user": 14,
+                        "query": "whimsical tone, dark undertones, animated, for children, emotionally traumatic for adults.",
+                    }
+                },
+                "Provide recommendations for user 10 for ensemble comedy movies where at least one character wears a trench coat and the score uses saxophones.": {
+                    "name": "get_recommendations_by_description",
+                    "arguments": {
+                        "user": 10,
+                        "query": "comedy movie, wears a trench coat, score uses saxophones.",
+                        "filters": {
+                            "genres": ["comedy"]
+                        }
+                    }
+                },
+                "Provide recommendations for user 45 for sci-fi movies made before the year 2000 that are clearly inspired by Blade Runner but take place underwater": {
+                    "name": "get_recommendations_by_description",
+                    "arguments": {
+                        "user": 45,
+                        "query": "sci-fi movie, blade runner, underwater",
+                        "filters": {
+                            "genres": ["sci-fi"],
+                            "release_date": {
+                                "request": "lower",
+                                "threshold": 2000
+                            }
                         }
                     }
                 }

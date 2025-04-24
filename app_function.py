@@ -4,7 +4,7 @@ import os
 load_dotenv()
 os.environ.pop("DATABASE_URL", None)
 import chainlit as cl
-from src.my_app.function_definitions import RECOMMENDATION, METADATA, INTERACTION
+from src.my_app.function_definitions import RECOMMENDATION, METADATA, INTERACTION, RECOMMENDATION_VECTOR
 from src.my_app.utils import create_app_environment
 from src.my_app.functions import get_item_metadata, get_interacted_items, get_top_k_recommendations
 
@@ -15,7 +15,8 @@ from src.my_app.functions import get_item_metadata, get_interacted_items, get_to
 entities_setup = {
     "api_key": os.getenv("ENTITIES_API_KEY"),
     "user_id": os.getenv("ENTITIES_USER_ID"),
-    "assistant_tools": [RECOMMENDATION, METADATA, INTERACTION],
+    "assistant_tools": [RECOMMENDATION, METADATA, INTERACTION, RECOMMENDATION_VECTOR],
+    "vector_store_name": "ml-100k_metadata_vector_store"
 }
 
 db_name = "movielens-100k"

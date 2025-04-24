@@ -9,7 +9,7 @@ import ast
 from rapidfuzz import process
 
 
-def create_entities_environment(api_key, user_id, assistant_tools):
+def create_entities_environment(api_key, user_id, assistant_tools, vector_store_name):
     """
     This function creates the Entities API environment (middleware layer between user and LLM)
 
@@ -17,6 +17,7 @@ def create_entities_environment(api_key, user_id, assistant_tools):
     :param user_id: user_id of the user that interacts with the assistant (i.e., LLM)
     :param assistant_tools: tools (for function calling) that have to be associated with the
     assistant
+    :param vector_store_name: name of the vector store that has to be created
     :return: client, user, thread, and assistant of Entities API environment
     """
     client = Entity(base_url="http://localhost:9000",
@@ -25,7 +26,10 @@ def create_entities_environment(api_key, user_id, assistant_tools):
     thread = client.threads.create_thread(participant_ids=[user.id])
     assistant = client.assistants.retrieve_assistant("default")
     for tool in assistant_tools:
-        associate_tool_to_assistant(assistant.id, tool=tool, api_key=api_key)
+        associate_tool_to_assistant(client, assistant.id, tool=tool)
+
+    vector_store_setup_movielens(client=client, user_id=user.id,
+                                 vector_store_name=vector_store_name)
 
     return client, user, thread, assistant
 
@@ -45,7 +49,8 @@ def create_app_environment(database_name, entities_setup):
     return create_entities_environment(
         api_key=entities_setup["api_key"],
         user_id=entities_setup["user_id"],
-        assistant_tools=entities_setup["assistant_tools"]
+        assistant_tools=entities_setup["assistant_tools"],
+        vector_store_name=entities_setup["vector_store_name"]
     )
 
 
@@ -92,11 +97,11 @@ def create_ml100k_db(db_name):
             director = parts[3] if parts[3] != 'unknown' else None
             producer = parts[4] if parts[4] != 'unknown' else None
             actors = parts[5] if parts[5] != 'unknown' else None
-            release_year = int(parts[6]) if parts[6].isdigit() and parts[6] != 'unknown' else None
-            duration = int(parts[7]) if parts[7].isdigit() else None
+            release_year = int(parts[6]) if parts[6] != 'unknown' and parts[6].isdigit() else None
+            duration = convert_duration(parts[7]) if parts[7] != 'unknown' else None
             age_rating = parts[8] if parts[8] != 'unknown' else None
             imdb_rating = float(parts[9]) if parts[9] != 'unknown' else None
-            imdb_num_reviews = int(parts[10]) if parts[10].isdigit() and parts[10] != 'unknown' else None
+            imdb_num_reviews = convert_num_reviews(parts[10]) if parts[10] != 'unknown' else None
             description = parts[11] if parts[11] != 'unknown' else None
 
             # Insert into the table
@@ -171,18 +176,15 @@ def extract_unique_names(csv_path, column):
     return sorted(all_names)
 
 
-def associate_tool_to_assistant(assistant_id, tool, api_key):
+def associate_tool_to_assistant(client, assistant_id, tool):
     """
     This function associates the passed tool to the passed assistant. Tools are the function that
     could be called by the assistant. See my_app/functions.py for reference.
 
+    :param client: Entities API client
     :param assistant_id: ID of the assistant to which the tool is associated
     :param tool: tool to be associated
-    :param api_key: api_key for Entities API
     """
-    # create Entities API client
-    client = Entity(base_url="http://localhost:9000",
-                    api_key=api_key)
     # check if tool is already associated
     tools = client.tools.list_tools(assistant_id)
     if tool['function']['name'] in [t['name'] for t in tools]:
@@ -362,17 +364,16 @@ def create_md_from_item(item_file):
     print("Markdown file created!")
 
 
-def vector_store_setup_movielens():
+def vector_store_setup_movielens(client, user_id, vector_store_name):
     """
     Ingest MovieLens metadata into a vector store,
     embedding all known descriptive attributes into vectorized text.
+
+    :param client: Entities API client
+    :param user_id: ID of the user for creating the vector store
+    :param vector_store_name: name of the vector store
     """
     load_dotenv()
-    client = Entity(
-        base_url=os.getenv("BASE_URL", "http://localhost:9000"),
-        api_key=os.getenv("ENTITIES_API_KEY"),
-    )
-    user_id = os.getenv("ENTITIES_USER_ID")
 
     movies = pd.read_csv(
         "./data/recsys/ml-100k/final_ml-100k.csv",
@@ -386,79 +387,62 @@ def vector_store_setup_movielens():
         if mv["genres"] != "unknown":
             fields.append(f"Genres: {mv['genres']}")
 
-        if mv['director'] != "unknown":
-            fields.append(f"Director: {mv['director']}")
-
-        if mv['producer'] != "unknown":
-            fields.append(f"Producer: {mv['producer']}")
-
-        if mv['actors'] != "unknown":
-            fields.append(f"Actors: {mv['actors']}")
-
-        if mv['release_date'] != "unknown":
-            fields.append(f"Release date: {mv['release_date']}")
-
-        if mv['duration'] == "unknown":
-            fields.append(f"Duration: {mv['duration']}")
-
-        if mv['age_rating'] != "unknown":
-            fields.append(f"Age rating: {mv['age_rating']}")
-
-        if mv['imdb_rating'] != "unknown":
-            fields.append(f"IMDb rating: {mv['imdb_rating']}")
-
-        if mv['imdb_num_reviews'] != "unknown":
-            fields.append(f"IMDb review count: {mv['imdb_num_reviews']}")
-
         if mv['description'] != "unknown":
             fields.append(f"Description: {mv['description']}")
 
-        return ". ".join(fields) + "."
+        return ". \n".join(fields) + "."
 
-    vs = client.vectors.create_vector_store(
-        name="movielens-complete",
-        user_id=user_id,
-    )
+    # check if a vector store with the same name already exists
+    if os.getenv('ENTITIES_VECTOR_STORE_ID') is not None:
+        print("Store already exists!")
+    else:
+        vs = client.vectors.create_vector_store(
+            name=vector_store_name,
+            user_id=user_id,
+        )
 
-    collection = vs.collection_name
-    print(f"🆕 Created vector store {vs.id} → collection '{collection}'")
+        collection = vs.collection_name
+        print(f"🆕 Created vector store {vs.id} → collection '{collection}'")
 
-    embedder = client.vectors.file_processor.embedding_model
+        embedder = client.vectors.file_processor.embedding_model
 
-    for _, mv in movies.iterrows():
-        if mv["title"] != "unknown":
-            text = build_embedding_text(mv)
-            vec = embedder.encode(
-                [text],
-                convert_to_numpy=True,
-                normalize_embeddings=True,
-                truncate="model_max_length",
-                show_progress_bar=False,
-            )[0].tolist()
+        for _, mv in movies.iterrows():
+            if mv["title"] != "unknown":
+                text = build_embedding_text(mv)
+                vec = embedder.encode(
+                    [text],
+                    convert_to_numpy=True,
+                    normalize_embeddings=True,
+                    truncate="model_max_length",
+                    show_progress_bar=False,
+                )[0].tolist()
 
-            meta = {
-                "item_id": int(mv["item_id"]),
-                "title": mv["title"] if mv["title"] != "unknown" else None,
-                "genres": ast.literal_eval(mv["genres_list"]) if mv["genres_list"] != "unknown" else None,
-                "director": ast.literal_eval(mv["director_list"]) if mv["director_list"] != "unknown" else None,
-                "producer": ast.literal_eval(mv["producer_list"]) if mv["producer_list"] != "unknown" else None,
-                "actors": ast.literal_eval(mv["actors_list"]) if mv["actors_list"] != "unknown" else None,
-                "release_date": int(mv["release_date"]) if mv["release_date"] != "unknown" else None,
-                "duration": convert_duration(mv["duration"]) if mv["duration"] != "unknown" else None,
-                "age_rating": mv["age_rating"] if mv["age_rating"] != "unknown" else None,
-                "imdb_rating": float(mv["imdb_rating"]) if mv["imdb_rating"] != "unknown" else None,
-                "imdb_num_reviews": convert_num_reviews(mv["imdb_num_reviews"]) if mv["imdb_num_reviews"] != "unknown" else None,
-                "description": mv["description"] if mv["description"] != "unknown" else None
-            }
+                meta = {
+                    "item_id": int(mv["item_id"]),
+                    "title": mv["title"] if mv["title"] != "unknown" else None,
+                    "genres": ast.literal_eval(mv["genres_list"]) if mv["genres_list"] != "unknown" else None,
+                    "director": ast.literal_eval(mv["directors_list"]) if mv["directors_list"] != "unknown" else None,
+                    "producer": ast.literal_eval(mv["producers_list"]) if mv["producers_list"] != "unknown" else None,
+                    "actors": ast.literal_eval(mv["actors_list"]) if mv["actors_list"] != "unknown" else None,
+                    "release_date": int(mv["release_date"]) if mv["release_date"] != "unknown" else None,
+                    "duration": convert_duration(mv["duration"]) if mv["duration"] != "unknown" else None,
+                    "age_rating": mv["age_rating"] if mv["age_rating"] != "unknown" else None,
+                    "imdb_rating": float(mv["imdb_rating"]) if mv["imdb_rating"] != "unknown" else None,
+                    "imdb_num_reviews": convert_num_reviews(mv["imdb_num_reviews"]) if mv["imdb_num_reviews"] != "unknown" else None,
+                    "description": mv["description"] if mv["description"] != "unknown" else None
+                }
 
-            client.vectors.vector_manager.add_to_store(
-                store_name=collection,
-                texts=[text],
-                vectors=[vec],
-                metadata=[meta],
-            )
+                client.vectors.vector_manager.add_to_store(
+                    store_name=collection,
+                    texts=[text],
+                    vectors=[vec],
+                    metadata=[meta],
+                )
 
-    print(f"✅ Ingested {len(movies)} fully enriched movies.")
+        print(f"✅ Ingested {len(movies)} fully enriched movies.")
+        print("Adding vector store ID to .env")
+
+        set_env_variable('./.env', 'ENTITIES_VECTOR_STORE_ID', vs.id)
 
 
 def convert_duration(duration_str):
@@ -482,3 +466,40 @@ def convert_num_reviews(view_str):
         return int(num * multipliers[view_str[-1]])
     else:
         return int(view_str)
+
+
+def set_env_variable(file_path, key, value):
+    """
+    Adds an environment variable to the .env file.
+    :param file_path: path to .env file
+    :param key: name of the variable
+    :param value: value of the variable
+    """
+    lines = []
+    found = False
+
+    # Read the .env file if it exists
+    try:
+        with open(file_path, 'r') as file:
+            for line in file:
+                if line.startswith(f"{key}="):
+                    lines.append(f"{key}={value}\n")
+                    found = True
+                else:
+                    lines.append(line)
+    except FileNotFoundError:
+        pass  # The file doesn't exist yet
+
+    # If the key was not found, add it
+    if not found:
+        lines.append(f"\n{key}='{value}'")
+
+    # Write back the file
+    with open(file_path, 'w') as file:
+        file.writelines(lines)
+
+
+# todo define a function that just performs store seaches, the function can call the get_top_k_recommendations
+# todo provide examples for the function
+# todo understand how to reply to complex questions like "provide recommendations for movies similar to item ID xyz, another tool or the same?"
+# todo add function call handler for vector store search, implement the search -> create filters instead of define SQL query
