@@ -4,7 +4,6 @@ import torch
 from recbole.utils.case_study import full_sort_scores, full_sort_topk
 import json
 from src.my_app.utils import define_sql_query, execute_sql_query
-import random
 
 
 def create_recbole_environment(model_path):
