@@ -1,190 +1,108 @@
+from chainlit import on_message
+from dotenv import load_dotenv
 import os
-from recbole.quick_start import load_data_and_model
-import torch
-from recbole.utils.case_study import full_sort_scores, full_sort_topk
-import json
-from src.my_app.utils import define_sql_query, execute_sql_query
+load_dotenv()
+os.environ.pop("DATABASE_URL", None)
+import chainlit as cl
+from src.my_app.function_definitions import RECOMMENDATION, METADATA, INTERACTION
+from src.my_app.utils import create_app_environment
+from src.my_app.functions import get_item_metadata, get_interacted_items, get_top_k_recommendations
+
+# todo look for item metadata with multiple IDs instead of doing multiple searches in the table
+# todo create a summary of a user based on its past interactions, depict the user based on his/her past interactions
+# todo when there are a lot of interactions, let's keep the most recent ones
+
+entities_setup = {
+    "api_key": os.getenv("ENTITIES_API_KEY"),
+    "user_id": os.getenv("ENTITIES_USER_ID"),
+    "assistant_tools": [RECOMMENDATION, METADATA, INTERACTION],
+}
+
+db_name = "movielens-100k"
+
+client, user, thread, assistant = create_app_environment(
+    database_name=db_name,
+    entities_setup=entities_setup
+)
 
 
-def create_recbole_environment(model_path):
-    """
-    This function creates a global RecBole environment that can be accessed by the functions that
-    process recommendation requests.
+def function_call_handler(tool_name, arguments):
+    print(f"Calling tool: {tool_name}")
+    if tool_name == "get_top_k_recommendations":
+        return get_top_k_recommendations(arguments, db_name)
+    if tool_name == "get_item_metadata":
+        return get_item_metadata(arguments, db_name)
+    if tool_name == "get_interacted_items":
+        return get_interacted_items(arguments, db_name)
 
-    :param model_path: path to pre-trained recsys model
-    """
-    global config, model, dataset, train_data, valid_data, test_data
-    config, model, dataset, train_data, valid_data, test_data = load_data_and_model(
-        model_file=model_path
+
+@on_message
+async def handle_message(message):
+    client.messages.create_message(
+        thread_id=thread.id,
+        role='user',
+        content=message.content,
+        assistant_id=assistant.id
     )
 
+    run = client.runs.create_run(
+        assistant_id=assistant.id,
+        thread_id=thread.id
+    )
 
-def get_top_k_recommendations(params, db_name):
-    """
-    This is the function that is invoked by the LLM when some recommendations are requested by the
-    user.
+    msg = cl.Message(content="")
 
-    If conditions for constrained recommendation are given, it creates a SQL query to retrieve
-    satisfying items.
+    sync_stream = client.synchronous_inference_stream
 
-    It then invokes the pre-trained recommender system to generate a ranking of recommended items
-    for the given user.
+    sync_stream.setup(
+        user_id=user.id,
+        thread_id=thread.id,
+        assistant_id=assistant.id,
+        message_id=message.id,
+        run_id=run.id,
+        api_key=os.getenv("HYPERBOLIC_API_KEY"),
+    )
 
-    :param params: dictionary containing all the arguments to process standard and constrained
-    recommendations
-    :param db_name: name of the database where the queries have to be executed
+    for chunk in sync_stream.stream_chunks(
+        provider="Hyperbolic",
+        model="hyperbolic/deepseek-ai/DeepSeek-V3",
+        timeout_per_chunk=20.0,
+        api_key=os.getenv("HYPERBOLIC_API_KEY"),
+    ):
+        token = chunk.get("content", "")
+        await msg.stream_token(token)
 
-    :return: a prompt for the LLM that the LLM will use as additional context to prepare the final
-    answer
-    """
-    if 'user' in params and 'k' in params:
-        user = params.get('user')
-        k = params.get('k')
-        # create RecBole environment if it is not already created
-        if 'config' not in globals():
-            create_recbole_environment(os.getenv("RECSYS_MODEL_PATH"))
-        uid_series = dataset.token2id(dataset.uid_field, [str(user)])
-        # check if it is a constrained recommendation
-        if 'filters' in params:
-            filters = params.get('filters')
-            # execute sql query based on the filters to get items that satisfy the filters
-            sql_query = define_sql_query("items", filters)
-            result = execute_sql_query(db_name, sql_query)
-            # invoke the recommender system to get rating of all items satisfying the given conditions
-            item_ids = [str(row[0]) for row in result]
-            all_scores = full_sort_scores(uid_series, model, test_data, device=config['device'])
-            satisfying_item_scores = all_scores[0, dataset.token2id(dataset.iid_field, item_ids)]
-            _, sorted_indices = torch.sort(satisfying_item_scores, descending=True)
-            external_item_list = [item_ids[i] for i in sorted_indices[:k].cpu().numpy()]
-        else:
-            # if no filters are given, then it is a standard recommendation and we can directly
-            # generate the ranking for the given user
-            topk_score, topk_iid_list = full_sort_topk(uid_series, model, test_data, k=k,
-                                                       device=config['device'])
-            external_item_list = dataset.id2token(dataset.iid_field, topk_iid_list.cpu())[0]
+    try:
+        action_was_handled = client.runs.poll_and_execute_action(
+            run_id=run.id,
+            thread_id=thread.id,
+            assistant_id=assistant.id,
+            tool_executor=function_call_handler,
+            actions_client=client.actions,
+            messages_client=client.messages,
+            timeout=45.0,
+            interval=1.5,
+        )
 
-        print(external_item_list)
-        response_dict = get_item_metadata(params={'items': external_item_list,
-                                                  'specification': ["item_id", "title", "genres", "director", "producer", "actors", "release_date", "duration", "imdb_rating", "description"]},
-                                          db_name=db_name, return_dict=True)
+        if action_was_handled:
+            print("\n[Tool executed. Generating final response...]\n")
+            sync_stream.setup(
+                user_id=user.id,
+                thread_id=thread.id,
+                assistant_id=assistant.id,
+                message_id="regenerated",
+                run_id=run.id,
+                api_key=os.getenv("HYPERBOLIC_API_KEY"),
+            )
+            for final_chunk in sync_stream.stream_chunks(
+                provider="Hyperbolic",
+                model="hyperbolic/deepseek-ai/DeepSeek-V3",
+                timeout_per_chunk=20.0,
+                api_key=os.getenv("HYPERBOLIC_API_KEY"),
+            ):
+                token = final_chunk.get("content", "")
+                await msg.stream_token(token)
+    except Exception as e:
+        print(f"\n[Error during tool execution or final stream]: {str(e)}")
 
-        # get items interacted by user ID
-        item_ids = get_interacted_items(params={'user': int(user)}, db_name=db_name, return_list=True)
-        # get metadata of interacted items
-        interaction_dict = get_item_metadata(params={'items': item_ids,
-                                                     'specification': ["item_id", "title", "genres", "director", "producer", "actors", "release_date", "duration", "imdb_rating", "description"]},
-                                             db_name=db_name, return_dict=True)
-
-        print("\n" + str(interaction_dict) + "\n")
-        print("\n" + str(response_dict) + "\n")
-        return json.dumps({
-            "status": "success",
-            "message": f"Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. Please, use all the information included in the generated dictionary when listing recommendations. After listing the recommended items, ask the user if she/he would like to have an explanation for the recommendations. If the answer is positive, try to provide an explanation for the recommendations based on the similarities between the recommended items and the items the user interacted in the past, that are: {interaction_dict}. To explain recommendations, you could also use additional information that you might know in your pre-trained knowledge."
-        })
-    else:
-        return json.dumps({
-            "status": "failure",
-            "message": f"Something went wrong in the function calling. The generated JSON "
-                       f"is invalid.",
-        })
-
-
-def get_item_metadata(params, db_name, return_dict=False):
-    """
-    This function is used by the assistant to retrieve the metadata of items based on user requests.
-
-    :param params: dictionary containing all the arguments to process the metadata request
-    :param db_name: name of database on which the SQL query is to be executed
-    :param return_dict: whether to return the output as a dictionary or stream
-    :return: stream or dictionary with the requested information
-    """
-    if 'items' in params and 'specification' in params:
-        items = params.get('items')
-        specification = params.get('specification')
-        sql_query = define_sql_query("items", {"items": items, "specification": specification})
-        result = execute_sql_query(db_name, sql_query)
-
-        if result and not return_dict:
-            return_str = ""
-            for j in range(len(result)):
-                return_str += f"Item {result[j][0]}:"
-                for i, spec in enumerate(specification):
-                    return_str += f"\n\n{spec}: {result[j][i] if result[j][i] is not None else 'unknown'}\n"
-            return json.dumps({
-                "status": "success",
-                "message": f"This is the requested metadata for items {items}:\n{return_str}",
-            })
-        elif result and return_dict:
-            r_dict = {}
-            for j in range(len(result)):
-                r_dict[result[j][0]] = {}
-                for i, spec in enumerate(specification):
-                    r_dict[result[j][0]][spec] = result[j][i] if result[j][i] is not None else "unknown"
-            return r_dict
-        else:
-            if not return_dict:
-                return json.dumps({
-                    "status": "failure",
-                    "message": f"No information found for the given items.",
-                })
-            else:
-                return None
-    else:
-        return json.dumps({
-            "status": "failure",
-            "message": f"Something went wrong in the function calling. The generated JSON "
-                       f"is invalid.",
-        })
-
-
-def get_interacted_items(params, db_name, return_list=False):
-    """
-    This function is invoked by the LLM when the user requests for historical interactions of
-    a specific user of the platform.
-
-    :param params: dictionary containing all the arguments to process the request
-    :param db_name: name of the database on which the SQL query is to be executed
-    :param return_list: whether to return the output as a list or stream
-    :return: stream or list with the requested information
-    """
-    if 'user' in params:
-        user = params.get('user')
-        sql_query = define_sql_query("interactions", params)
-        result = execute_sql_query(db_name, sql_query)[0][0].split(",")
-
-        if len(result) > 10:
-            # if there are more than 10 interacted items, we take the most recent ones
-            result = result[-10:]
-            mess = (f"Since user {user} interacted with more than 10 items in the past, for simplicity "
-                    "and to avoid verbosity, "
-                    "these are his/her most recent 10 interactions: ")
-        else:
-            mess = (f"These are all the items user {user} interacted in the past: ")
-
-        if result and not return_list:
-            response_dict = get_item_metadata(params={'items': result,
-                                                      'specification': ["item_id", "title", "genres", "director", "producer", "actors", "release_date", "duration", "imdb_rating", "description"]},
-                                              db_name=db_name, return_dict=True)
-
-            return json.dumps({
-                "status": "success",
-                "message": f"{mess}: {response_dict}. "
-                           f"Please, includes the item ID when listing "
-                           f"the interactions.",
-            })
-        elif result and return_list:
-            return result
-        else:
-            if not return_list:
-                return json.dumps({
-                    "status": "failure",
-                    "message": f"No information found for the given user.",
-                })
-            else:
-                return None
-    else:
-        return json.dumps({
-            "status": "failure",
-            "message": f"Something went wrong in the function calling. The generated JSON "
-                       f"is invalid.",
-        })
+    await msg.update()
