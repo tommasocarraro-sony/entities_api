@@ -76,7 +76,7 @@ def create_ml100k_db(db_name):
                     description TEXT)''')
 
     # load data
-    with open('./data/recsys/ml-100k/final_ml-100k.item', 'r', encoding='utf-8') as f:
+    with open('./data/recsys/ml-100k/final_ml-100k.csv', 'r', encoding='utf-8') as f:
         first_line = True
         for line in f:
             if first_line:
@@ -242,7 +242,10 @@ def define_sql_query(table, conditions):
             requested_field = "items"
         else:
             return None
-    elif table == "items" and ('genres' in conditions or 'release_date' in conditions):
+    elif table == "items" and ('genres' in conditions or 'actors' in conditions or
+                               'director' in conditions or 'producer' in conditions or
+                               'release_date' in conditions or 'duration' in conditions or
+                               'imdb_rating' in conditions):
         # process textual features
         process_textual("genres", conditions, genres_list, query_parts)
         process_textual("actors", conditions, actors_list, query_parts)

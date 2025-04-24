@@ -79,7 +79,7 @@ def get_top_k_recommendations(params, db_name):
         print("\n" + str(response_dict) + "\n")
         return json.dumps({
             "status": "success",
-            "message": f"Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. After listing the recommended items, ask the user if she/he would like to have an explanation for the recommendations. If the answer is positive, try to provide an explanation for the recommendations based on the similarities between the recommended items and the items the user interacted in the past, that are: {interaction_dict}. To explain recommendations, you could also use additional information that you might know in your pre-trained knowledge."
+            "message": f"Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. Please, use all the information included in the generated dictionary when listing recommendations. After listing the recommended items, ask the user if she/he would like to have an explanation for the recommendations. If the answer is positive, try to provide an explanation for the recommendations based on the similarities between the recommended items and the items the user interacted in the past, that are: {interaction_dict}. To explain recommendations, you could also use additional information that you might know in your pre-trained knowledge."
         })
     else:
         return json.dumps({
@@ -109,7 +109,7 @@ def get_item_metadata(params, db_name, return_dict=False):
             for j in range(len(result)):
                 return_str += f"Item {result[j][0]}:"
                 for i, spec in enumerate(specification):
-                    return_str += f"\n\n{spec}: {result[j][i]}\n"
+                    return_str += f"\n\n{spec}: {result[j][i] if result[j][i] is not None else 'unknown'}\n"
             return json.dumps({
                 "status": "success",
                 "message": f"This is the requested metadata for items {items}:\n{return_str}",
@@ -119,7 +119,7 @@ def get_item_metadata(params, db_name, return_dict=False):
             for j in range(len(result)):
                 r_dict[result[j][0]] = {}
                 for i, spec in enumerate(specification):
-                    r_dict[result[j][0]][spec] = result[j][i]
+                    r_dict[result[j][0]][spec] = result[j][i] if result[j][i] is not None else "unknown"
             return r_dict
         else:
             if not return_dict:
