@@ -60,27 +60,49 @@ def create_ml100k_db(db_name):
     conn = sqlite3.connect(f'{db_name}.db')
     cursor = conn.cursor()
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS items (item_id INTEGER PRIMARY KEY, title TEXT, release_date INTEGER, genres TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS items (
+                    item_id INTEGER PRIMARY KEY,
+                    title TEXT,
+                    genres TEXT,
+                    director TEXT,
+                    producer TEXT,
+                    actors TEXT,
+                    release_date INTEGER,
+                    duration INTEGER,
+                    age_rating TEXT,
+                    imdb_rating FLOAT,
+                    imdb_num_reviews INTEGER,
+                    description TEXT)''')
 
     # load data
-    with open('./data/recsys/ml-100k/ml-100k.item', 'r', encoding='utf-8') as f:
+    with open('./data/recsys/ml-100k/final_ml-100k.item', 'r', encoding='utf-8') as f:
         first_line = True
         for line in f:
             if first_line:
                 first_line = False
                 continue
             parts = line.strip().split('\t')
-            if len(parts) < 4:
+            if len(parts) < 16:
                 continue  # skip lines with missing data
 
             item_id = int(parts[0])
-            movie_title = parts[1]
-            release_year = int(parts[2]) if parts[2].isdigit() else None
-            movie_class = parts[3]
+            movie_title = parts[1] if parts[1] != 'unknown' else None
+            genres = parts[2] if parts[2] != 'unknown' else None
+            director = parts[3] if parts[3] != 'unknown' else None
+            producer = parts[4] if parts[4] != 'unknown' else None
+            actors = parts[5] if parts[5] != 'unknown' else None
+            release_year = int(parts[6]) if parts[6].isdigit() and parts[6] != 'unknown' else None
+            duration = int(parts[7]) if parts[7].isdigit() else None
+            age_rating = parts[8] if parts[8] != 'unknown' else None
+            imdb_rating = float(parts[9]) if parts[9] != 'unknown' else None
+            imdb_num_reviews = int(parts[10]) if parts[10].isdigit() and parts[10] != 'unknown' else None
+            description = parts[11] if parts[11] != 'unknown' else None
 
             # Insert into the table
-            cursor.execute('INSERT OR IGNORE INTO items VALUES (?, ?, ?, ?)',
-                           (item_id, movie_title, release_year, movie_class))
+            cursor.execute('INSERT OR IGNORE INTO items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                           (item_id, movie_title, genres, director, producer, actors,
+                            release_year, duration, age_rating, imdb_rating, imdb_num_reviews,
+                            description))
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS interactions (user_id INTEGER PRIMARY KEY, items TEXT)''')
 

@@ -38,7 +38,12 @@ def map_genre_ids(genre_id_string, as_list=False):
         if as_list:
             return genres
         else:
-            return " ".join(genres)
+            if len(genres) == 1:
+                return genres[0]
+            elif len(genres) == 2:
+                return f"{genres[0]} and {genres[1]}"
+            else:
+                return ", ".join(genres[:-1]) + ", and " + genres[-1]
     except (ValueError, SyntaxError):
         return "unknown"
 
