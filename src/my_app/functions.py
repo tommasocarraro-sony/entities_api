@@ -66,14 +66,14 @@ def get_top_k_recommendations(params, db_name):
 
         print(external_item_list)
         response_dict = get_item_metadata(params={'items': external_item_list,
-                                                  'specification': ["item_id", "title", "release_date", "genres"]},
+                                                  'specification': ["item_id", "title", "genres", "director", "producer", "actors", "release_date", "duration", "imdb_rating", "description"]},
                                           db_name=db_name, return_dict=True)
 
         # get items interacted by user ID
         item_ids = get_interacted_items(params={'user': int(user)}, db_name=db_name, return_list=True)
         # get metadata of interacted items
         interaction_dict = get_item_metadata(params={'items': item_ids,
-                                                     'specification': ["item_id", "title", "release_date", "genres"]},
+                                                     'specification': ["item_id", "title", "genres", "director", "producer", "actors", "release_date", "duration", "imdb_rating", "description"]},
                                              db_name=db_name, return_dict=True)
 
         print("\n" + str(interaction_dict) + "\n")
@@ -164,9 +164,7 @@ def get_interacted_items(params, db_name, return_list=False):
 
         if result and not return_list:
             response_dict = get_item_metadata(params={'items': result,
-                                                      'specification': ["item_id", "title",
-                                                                        "release_date",
-                                                                        "genres"]},
+                                                      'specification': ["item_id", "title", "genres", "director", "producer", "actors", "release_date", "duration", "imdb_rating", "description"]},
                                               db_name=db_name, return_dict=True)
 
             return json.dumps({
