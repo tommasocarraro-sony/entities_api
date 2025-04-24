@@ -1,6 +1,11 @@
 import sqlite3
 from projectdavid import Entity
 from projectdavid_common.schemas.tools import ToolFunction
+import os
+import re
+import pandas as pd
+from dotenv import load_dotenv
+import ast
 
 
 def create_entities_environment(api_key, user_id, assistant_tools):
@@ -242,3 +247,125 @@ def create_md_from_item(item_file):
             md.write(f"- Genres: {genres}\n\n")
 
     print("Markdown file created!")
+
+
+def vector_store_setup_movielens():
+    """
+    Ingest MovieLens metadata into a vector store,
+    embedding all known descriptive attributes into vectorized text.
+    """
+    load_dotenv()
+    client = Entity(
+        base_url=os.getenv("BASE_URL", "http://localhost:9000"),
+        api_key=os.getenv("ENTITIES_API_KEY"),
+    )
+    user_id = os.getenv("ENTITIES_USER_ID")
+
+    movies = pd.read_csv(
+        "./data/recsys/ml-100k/final_ml-100k.csv",
+        sep="\t",
+        encoding="latin-1"
+    )
+
+    def build_embedding_text(mv: pd.Series) -> str:
+        fields = [f"Title: {mv['title']}"]
+
+        if mv["genres"] != "unknown":
+            fields.append(f"Genres: {mv['genres']}")
+
+        if mv['director'] != "unknown":
+            fields.append(f"Director: {mv['director']}")
+
+        if mv['producer'] != "unknown":
+            fields.append(f"Producer: {mv['producer']}")
+
+        if mv['actors'] != "unknown":
+            fields.append(f"Actors: {mv['actors']}")
+
+        if mv['release_date'] != "unknown":
+            fields.append(f"Release date: {mv['release_date']}")
+
+        if mv['duration'] == "unknown":
+            fields.append(f"Duration: {mv['duration']}")
+
+        if mv['age_rating'] != "unknown":
+            fields.append(f"Age rating: {mv['age_rating']}")
+
+        if mv['imdb_rating'] != "unknown":
+            fields.append(f"IMDb rating: {mv['imdb_rating']}")
+
+        if mv['imdb_num_reviews'] != "unknown":
+            fields.append(f"IMDb review count: {mv['imdb_num_reviews']}")
+
+        if mv['description'] != "unknown":
+            fields.append(f"Description: {mv['description']}")
+
+        return ". ".join(fields) + "."
+
+    vs = client.vectors.create_vector_store(
+        name="movielens-complete",
+        user_id=user_id,
+    )
+
+    collection = vs.collection_name
+    print(f"🆕 Created vector store {vs.id} → collection '{collection}'")
+
+    embedder = client.vectors.file_processor.embedding_model
+
+    for _, mv in movies.iterrows():
+        if mv["title"] != "unknown":
+            text = build_embedding_text(mv)
+            vec = embedder.encode(
+                [text],
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+                truncate="model_max_length",
+                show_progress_bar=False,
+            )[0].tolist()
+
+            meta = {
+                "item_id": int(mv["item_id"]),
+                "title": mv["title"] if mv["title"] != "unknown" else None,
+                "genres": ast.literal_eval(mv["genres_list"]) if mv["genres_list"] != "unknown" else None,
+                "director": ast.literal_eval(mv["director_list"]) if mv["director_list"] != "unknown" else None,
+                "producer": ast.literal_eval(mv["producer_list"]) if mv["producer_list"] != "unknown" else None,
+                "actors": ast.literal_eval(mv["actors_list"]) if mv["actors_list"] != "unknown" else None,
+                "release_date": int(mv["release_date"]) if mv["release_date"] != "unknown" else None,
+                "duration": convert_duration(mv["duration"]) if mv["duration"] != "unknown" else None,
+                "age_rating": mv["age_rating"] if mv["age_rating"] != "unknown" else None,
+                "imdb_rating": float(mv["imdb_rating"]) if mv["imdb_rating"] != "unknown" else None,
+                "imdb_num_reviews": convert_num_reviews(mv["imdb_num_reviews"]) if mv["imdb_num_reviews"] != "unknown" else None,
+                "description": mv["description"] if mv["description"] != "unknown" else None
+            }
+
+            client.vectors.vector_manager.add_to_store(
+                store_name=collection,
+                texts=[text],
+                vectors=[vec],
+                metadata=[meta],
+            )
+
+    print(f"✅ Ingested {len(movies)} fully enriched movies.")
+
+
+def convert_duration(duration_str):
+    # Regular expressions to extract hours and minutes
+    hours_match = re.search(r'(\d+)\s*h', duration_str)
+    minutes_match = re.search(r'(\d+)\s*min', duration_str)
+
+    # Convert found values to integers, default to 0 if not found
+    hours = int(hours_match.group(1)) if hours_match else 0
+    minutes = int(minutes_match.group(1)) if minutes_match else 0
+
+    return hours * 60 + minutes
+
+
+def convert_num_reviews(view_str):
+    view_str = view_str.strip().upper()
+    multipliers = {'K': 1_000, 'M': 1_000_000, 'B': 1_000_000_000}
+
+    if view_str[-1] in multipliers:
+        num = float(view_str[:-1])
+        return int(num * multipliers[view_str[-1]])
+    else:
+        return int(view_str)
