@@ -64,14 +64,14 @@ df['genres_list'] = df['genres'].apply(map_genre_ids, args=(True, ))
 df['genres'] = df['genres'].apply(map_genre_ids)
 df['release_date'] = df['release_date'].str.extract(r'(\d{4})')
 # df['release_date'] = pd.to_numeric(df['release_date'], errors='coerce').astype('Int64')
-df['director_list'] = df['director']
+df['directors_list'] = df['director']
 df['director'] = df['director'].apply(format_names)
 df['actors_list'] = df['actors']
 df['actors'] = df['actors'].apply(format_names)
-df['producer_list'] = df['producer']
+df['producers_list'] = df['producer']
 df['producer'] = df['producer'].apply(format_names)
 
-ordered_columns = ['item_id', 'title', 'genres', 'director', 'producer', 'actors', 'release_date', 'duration', 'age_rating', 'imdb_rating', 'imdb_num_reviews', 'description', 'genres_list', 'director_list', 'producer_list', 'actors_list']
+ordered_columns = ['item_id', 'title', 'genres', 'director', 'producer', 'actors', 'release_date', 'duration', 'age_rating', 'imdb_rating', 'imdb_num_reviews', 'description', 'genres_list', 'directors_list', 'producers_list', 'actors_list']
 
 # fill remaining NaN values with unknown
 df.fillna("unknown", inplace=True)

@@ -6,6 +6,7 @@ import re
 import pandas as pd
 from dotenv import load_dotenv
 import ast
+from rapidfuzz import process
 
 
 def create_entities_environment(api_key, user_id, assistant_tools):
@@ -138,6 +139,37 @@ def create_ml100k_db(db_name):
     conn.commit()
     conn.close()
 
+    # create the lists of actors, directors, producers, and genres for fuzzy matching
+    global actors_list, producers_list, directors_list, genres_list
+    actors_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "actors_list")
+    producers_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "producers_list")
+    directors_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "directors_list")
+    genres_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "genres_list")
+
+
+def extract_unique_names(csv_path, column):
+    """
+    This function extracts unique names from a column of the dataset CSV file. The returned list
+    is used to implement fuzzy matching when performing SQL queries. Note fuzzy matching is only
+    performed for textual features.
+
+    :param csv_path: path to the CSV file
+    :param column: column name
+    :return: list of unique names
+    """
+    df = pd.read_csv(csv_path, sep='\t')
+
+    all_names = set()
+
+    for row in df[column].dropna():
+        try:
+            name_list = ast.literal_eval(row)
+            all_names.update(name.strip() for name in name_list)
+        except Exception as e:
+            print(f"Error parsing row: {row}\n{e}")
+
+    return sorted(all_names)
+
 
 def associate_tool_to_assistant(assistant_id, tool, api_key):
     """
@@ -211,23 +243,16 @@ def define_sql_query(table, conditions):
         else:
             return None
     elif table == "items" and ('genres' in conditions or 'release_date' in conditions):
-        if 'genres' in conditions:
-            genres = conditions['genres']
-            for genre in genres:
-                query_parts.append(f"LOWER(genres) LIKE '%{genre.lower()}%'")
+        # process textual features
+        process_textual("genres", conditions, genres_list, query_parts)
+        process_textual("actors", conditions, actors_list, query_parts)
+        process_textual("director", conditions, directors_list, query_parts)
+        process_textual("producer", conditions, producers_list, query_parts)
 
-        if 'release_date' in conditions:
-            release_date = conditions['release_date']
-            request = None
-            if isinstance(release_date, dict):
-                request = release_date['request']
-                release_date = release_date['threshold']
-            if request is not None:
-                query_parts.append(
-                    f"release_date > {release_date}") if request == "higher" else query_parts.append(
-                    f"release_date < {release_date}")
-            else:
-                query_parts.append(f"release_date = {release_date}")
+        # process numerical features
+        process_numerical("release_date", conditions, query_parts)
+        process_numerical("duration", conditions, query_parts)
+        process_numerical("imdb_rating", conditions, query_parts)
 
         requested_field = "item_id"
     elif table == "items" and 'specification' in conditions and 'items' in conditions:
@@ -241,6 +266,57 @@ def define_sql_query(table, conditions):
     sql_query = f"SELECT {requested_field} FROM {table} WHERE {'AND '.join(query_parts)}"
     print("\n" + sql_query + "\n")
     return sql_query
+
+
+def process_textual(feature, conditions, names_list, query_parts):
+    """
+    Process a textual feature for creating the SQL query.
+
+    :param feature: name of the feature to be processed
+    :param conditions: the filters provided by the user in the prompt
+    :param names_list: list of valid names
+    :param query_parts: str where to append the query part processed by this functions
+    """
+    if feature in conditions:
+        f = conditions[feature]
+        for f_ in f:
+            # perform fuzzy matching
+            f_ = correct_name(f_, names_list)
+            if f_ is None:
+                continue  # if the name is not valid, we do not perform the query with that name
+            query_parts.append(f"LOWER({feature}) LIKE '%{f_.lower()}%'")
+
+
+def correct_name(input_name, candidates, threshold=90):
+    """
+    Returns the best fuzzy match if above threshold; otherwise returns None.
+    """
+    match, score, _ = process.extractOne(input_name, candidates)
+    if score >= threshold:
+        return match
+    return None
+
+
+def process_numerical(feature, conditions, query_parts):
+    """
+    Process a numerical feature for creating the SQL query.
+
+    :param feature: name of the feature to be processed
+    :param conditions: conditions provided by the user in the prompt
+    :param query_parts: str where to append the query part processed by this functions
+    """
+    if feature in conditions:
+        f = conditions[feature]
+        request = None
+        if isinstance(f, dict):
+            request = f['request']
+            f = f['threshold']
+        if request is not None:
+            query_parts.append(
+                f"{feature} > {f}") if request == "higher" else query_parts.append(
+                f"{feature} < {f}")
+        else:
+            query_parts.append(f"{feature} = {f}")
 
 
 def create_md_from_item(item_file):
