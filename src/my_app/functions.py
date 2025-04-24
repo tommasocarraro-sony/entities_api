@@ -52,40 +52,25 @@ def get_top_k_recommendations(params, db_name):
             matched = False
             filters = params.get('filters')
             # execute sql query based on the filters to get items that satisfy the filters
-            try:
-                sql_query, corrections, failed_corrections = define_sql_query("items", filters)
+            sql_query, corrections, failed_corrections = define_sql_query("items", filters)
+            if sql_query is not None:
                 result = execute_sql_query(db_name, sql_query)
-                # invoke the recommender system to get ratings of all items satisfying the given conditions
-                item_ids = [str(row[0]) for row in result]
-                all_scores = full_sort_scores(uid_series, model, test_data, device=config['device'])
-                satisfying_item_scores = all_scores[
-                    0, dataset.token2id(dataset.iid_field, item_ids)]
-                _, sorted_indices = torch.sort(satisfying_item_scores, descending=True)
-                external_item_list = [item_ids[i] for i in sorted_indices[:k].cpu().numpy()]
-                matched = True
-            except ValueError as e:
-                print(e)
-                # if no filters worked, then we perform a standard recommendation and we
-                # can directly generate the ranking for the given user
-                topk_score, topk_iid_list = full_sort_topk(uid_series, model, test_data, k=k,
-                                                           device=config['device'])
-                external_item_list = dataset.id2token(dataset.iid_field, topk_iid_list.cpu())[0]
-            if result is None:
-                matched = False
-                # if no filters worked, then we perform a standard recommendation and we
-                # can directly generate the ranking for the given user
-                topk_score, topk_iid_list = full_sort_topk(uid_series, model, test_data, k=k,
-                                                           device=config['device'])
-                external_item_list = dataset.id2token(dataset.iid_field, topk_iid_list.cpu())[0]
+                if result is not None:
+                    # invoke the recommender system to get ratings of all items satisfying
+                    # the given conditions
+                    item_ids = [str(row[0]) for row in result]
+                    recommended_items = recommend_given_items(uid_series, item_ids, k=k)
+                    matched = True
+                else:
+                    recommended_items = recommend_full_catalog(uid_series, k=k)
+            else:
+                recommended_items = recommend_full_catalog(uid_series, k=k)
         else:
-            # if no filters are given, then it is a standard recommendation and we can directly
-            # generate the ranking for the given user
-            topk_score, topk_iid_list = full_sort_topk(uid_series, model, test_data, k=k,
-                                                       device=config['device'])
-            external_item_list = dataset.id2token(dataset.iid_field, topk_iid_list.cpu())[0]
+            # if no filters are given, we can directly generate the ranking for the given user
+            recommended_items = recommend_full_catalog(uid_series, k=k)
 
-        print(external_item_list)
-        response_dict = get_item_metadata(params={'items': external_item_list,
+        print(recommended_items)
+        response_dict = get_item_metadata(params={'items': recommended_items,
                                                   'specification': ["item_id", "title", "genres", "director", "producer", "actors", "release_date", "duration", "imdb_rating", "description"]},
                                           db_name=db_name, return_dict=True)
 
@@ -110,6 +95,36 @@ def get_top_k_recommendations(params, db_name):
             "message": f"Something went wrong in the function calling. The generated JSON "
                        f"is invalid.",
         })
+
+
+def recommend_full_catalog(user, k=5):
+    """
+    It generates a ranking for the given user on the entire item catalog using the loaded
+    pre-trained model.
+
+    :param user: user ID for which the recommendation has to be generated
+    :param k: number of items to be returned (first k positions in the ranking)
+    :return: ranking (of item IDs) for the given user ID
+    """
+    topk_score, topk_iid_list = full_sort_topk(user, model, test_data, k=k,
+                                               device=config['device'])
+    return dataset.id2token(dataset.iid_field, topk_iid_list.cpu())[0]
+
+
+def recommend_given_items(user, item_ids, k=5):
+    """
+    Generates recommendations for the given user and item IDs using the pre-trained model.
+
+    :param user: user ID for which the recommendation has to be generated
+    :param item_ids: item IDs for which the recommendation has to be generated
+    :param k: number of items to be returned (first k positions in the ranking)
+    :return: ranking (of item IDs) for the given user ID
+    """
+    all_scores = full_sort_scores(user, model, test_data, device=config['device'])
+    satisfying_item_scores = all_scores[
+        0, dataset.token2id(dataset.iid_field, item_ids)]
+    _, sorted_indices = torch.sort(satisfying_item_scores, descending=True)
+    return [item_ids[i] for i in sorted_indices[:k].cpu().numpy()]
 
 
 def get_item_metadata(params, db_name, return_dict=False):

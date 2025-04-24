@@ -271,7 +271,7 @@ def define_sql_query(table, conditions):
         print("\n" + sql_query + "\n")
         return sql_query, corrections, failed_corrections
     else:
-        raise ValueError(f"No matching conditions found in the database, even with the following corrections: {corrections}")
+        return None, corrections, failed_corrections
 
 
 def process_textual(feature, conditions, names_list, query_parts, corrections, failed_corrections):
