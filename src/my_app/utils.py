@@ -265,10 +265,12 @@ def define_sql_query(table, conditions):
         query_parts.append(f"item_id IN ({', '.join([str(i) for i in items])})")
     else:
         return None
-
-    sql_query = f"SELECT {requested_field} FROM {table} WHERE {'AND '.join(query_parts)}"
-    print("\n" + sql_query + "\n")
-    return sql_query
+    if query_parts:
+        sql_query = f"SELECT {requested_field} FROM {table} WHERE {'AND '.join(query_parts)}"
+        print("\n" + sql_query + "\n")
+        return sql_query
+    else:
+        raise ValueError("No matching conditions found in the database.")
 
 
 def process_textual(feature, conditions, names_list, query_parts):
@@ -284,19 +286,23 @@ def process_textual(feature, conditions, names_list, query_parts):
         f = conditions[feature]
         for f_ in f:
             # perform fuzzy matching
-            f_ = correct_name(f_, names_list)
-            if f_ is None:
+            f_corrected = correct_name(f_, names_list)
+            if f_corrected is None:
+                print(f"ERROR: {f_} is not a valid label for feature {feature}")
                 continue  # if the name is not valid, we do not perform the query with that name
-            query_parts.append(f"LOWER({feature}) LIKE '%{f_.lower()}%'")
+            query_parts.append(f"LOWER({feature}) LIKE '%{f_corrected.lower()}%'")
 
 
-def correct_name(input_name, candidates, threshold=90):
+def correct_name(input_name, candidates, threshold=70):
     """
     Returns the best fuzzy match if above threshold; otherwise returns None.
     """
+    print(f"Trying correcting name {input_name}")
     match, score, _ = process.extractOne(input_name, candidates)
     if score >= threshold:
+        print(f"Corrected name {input_name} with name {match}")
         return match
+    print(f"Failed to correct name {input_name}")
     return None
 
 

@@ -2,7 +2,7 @@ from rapidfuzz import process
 
 
 # 🎯 Step 2: Fuzzy match function
-def correct_actor_name(input_name, candidates, threshold=90):
+def correct_actor_name(input_name, candidates, threshold=70):
     """
     Returns the best fuzzy match if above threshold; otherwise returns None.
     """
@@ -38,6 +38,6 @@ actor_names = extract_unique_actor_names(csv_path)
 
 
 # 🧪 Step 3: Demo
-for user_input in ["Tom Cruize", "Leonardo DiKaprio", "Morgan Freemn", "Scarlett Johanson", "Chris Hemswarth"]:
+for user_input in ["Com Truize", "Leonardo DiKaprio", "Morgan Freemn", "Scarlett Johanson", "Chris Hemswarth"]:
     corrected = correct_actor_name(user_input, actor_names)
     print(f"Input: {user_input} → Match: {corrected}")

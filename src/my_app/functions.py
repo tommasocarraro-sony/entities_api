@@ -44,18 +44,30 @@ def get_top_k_recommendations(params, db_name):
         if 'config' not in globals():
             create_recbole_environment(os.getenv("RECSYS_MODEL_PATH"))
         uid_series = dataset.token2id(dataset.uid_field, [str(user)])
+        matched = None
         # check if it is a constrained recommendation
         if 'filters' in params:
+            matched = False
             filters = params.get('filters')
             # execute sql query based on the filters to get items that satisfy the filters
-            sql_query = define_sql_query("items", filters)
-            result = execute_sql_query(db_name, sql_query)
-            # invoke the recommender system to get rating of all items satisfying the given conditions
-            item_ids = [str(row[0]) for row in result]
-            all_scores = full_sort_scores(uid_series, model, test_data, device=config['device'])
-            satisfying_item_scores = all_scores[0, dataset.token2id(dataset.iid_field, item_ids)]
-            _, sorted_indices = torch.sort(satisfying_item_scores, descending=True)
-            external_item_list = [item_ids[i] for i in sorted_indices[:k].cpu().numpy()]
+            try:
+                sql_query = define_sql_query("items", filters)
+                result = execute_sql_query(db_name, sql_query)
+                # invoke the recommender system to get rating of all items satisfying the given conditions
+                item_ids = [str(row[0]) for row in result]
+                all_scores = full_sort_scores(uid_series, model, test_data, device=config['device'])
+                satisfying_item_scores = all_scores[
+                    0, dataset.token2id(dataset.iid_field, item_ids)]
+                _, sorted_indices = torch.sort(satisfying_item_scores, descending=True)
+                external_item_list = [item_ids[i] for i in sorted_indices[:k].cpu().numpy()]
+                matched = True
+            except ValueError as e:
+                print(e)
+                # if no filters worked, then we perform a standard recommendation and we
+                # can directly generate the ranking for the given user
+                topk_score, topk_iid_list = full_sort_topk(uid_series, model, test_data, k=k,
+                                                           device=config['device'])
+                external_item_list = dataset.id2token(dataset.iid_field, topk_iid_list.cpu())[0]
         else:
             # if no filters are given, then it is a standard recommendation and we can directly
             # generate the ranking for the given user
@@ -79,7 +91,7 @@ def get_top_k_recommendations(params, db_name):
         print("\n" + str(response_dict) + "\n")
         return json.dumps({
             "status": "success",
-            "message": f"Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. Please, use all the information included in the generated dictionary when listing recommendations. After listing the recommended items, ask the user if she/he would like to have an explanation for the recommendations. If the answer is positive, try to provide an explanation for the recommendations based on the similarities between the recommended items and the items the user interacted in the past, that are: {interaction_dict}. To explain recommendations, you could also use additional information that you might know in your pre-trained knowledge."
+            "message": f"{f'The given conditions did not match any item in the database. Hence, standard recommendations (without filters) for user {user} have been generated. ' if matched is not None and not matched else ''}Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. Please, use all the information included in the generated dictionary when listing recommendations. After listing the recommended items, ask the user if she/he would like to have an explanation for the recommendations. If the answer is positive, try to provide an explanation for the recommendations based on the similarities between the recommended items and the items the user interacted in the past, that are: {interaction_dict}. To explain recommendations, you could also use additional information that you might know in your pre-trained knowledge."
         })
     else:
         return json.dumps({
