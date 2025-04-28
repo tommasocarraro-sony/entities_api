@@ -3,7 +3,8 @@ from recbole.quick_start import load_data_and_model
 import torch
 from recbole.utils.case_study import full_sort_scores, full_sort_topk
 import json
-from src.my_app.utils import define_sql_query, execute_sql_query
+from src.my_app.utils import define_sql_query, execute_sql_query, define_qdrant_filters
+from projectdavid import Entity
 
 
 def create_recbole_environment(model_path):
@@ -87,7 +88,7 @@ def get_top_k_recommendations(params, db_name):
         void_str = ''
         return json.dumps({
             "status": "success",
-            "message": f"{f'The given conditions did not match any item in the database. Hence, standard recommendations (without filters) for user {user} have been generated. ' if matched is not None and not matched else ''}{f'Note that the following corrections have been made to retrieve recommendations: {corrections}. Please, explain the user that you have been able to provide recommendations only thanks to these adjustments. {failed_corr_text if failed_corrections else void_str}' if corrections else ''}Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. Please, use all the information included in the generated dictionary when listing recommendations. After listing the recommended items, ask the user if she/he would like to have an explanation for the recommendations. If the answer is positive, try to provide an explanation for the recommendations based on the similarities between the recommended items and the items the user interacted in the past, that are: {interaction_dict}. To explain recommendations, you could also use additional information that you might know in your pre-trained knowledge."
+            "message": f"{f'The given conditions did not match any item in the database. Hence, standard recommendations (without filters) for user {user} have been generated. ' if matched is not None and not matched else ''}{f'Note that the following corrections have been made to retrieve recommendations: {corrections}. Please, explain the user that you have been able to provide recommendations only thanks to these adjustments. {failed_corr_text if failed_corrections else void_str}' if corrections else ''}Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. Please, use just item_id, title, genres, director, and description in the generated dictionary when listing recommendations. After listing the recommended items, ask the user if she/he would like to have an explanation for the recommendations. If the answer is positive, try to provide an explanation for the recommendations based on the similarities between metadata (genres, director, duration, description, and so on) of the recommended items and the items the user interacted in the past, that are: {interaction_dict}. To explain recommendations, you could also use additional information that you might know in your pre-trained knowledge."
         })
     else:
         return json.dumps({
@@ -127,6 +128,169 @@ def recommend_given_items(user, item_ids, k=5):
     return [item_ids[i] for i in sorted_indices[:k].cpu().numpy()]
 
 
+def vector_store_search(query, filters=None, topk=5):
+    """
+    It performs a search on the vector store and returns the IDs of the retrieved items.
+
+    :param query: query for the vector store search
+    :param filters: Qdrant filters for the vector store search
+    :param topk: number of items to be returned by the vector store search
+    :return: IDs of retrieved items
+    """
+    client = Entity(
+        base_url=os.getenv("BASE_URL", "http://localhost:9000"),
+        api_key=os.getenv("ENTITIES_API_KEY"),
+    )
+    store = os.getenv("ENTITIES_VECTOR_STORE_ID")
+
+    embedder = client.vectors.file_processor.embedding_model
+    qvec = embedder.encode(
+        [query],
+        convert_to_numpy=True,
+        normalize_embeddings=True,
+        truncate="model_max_length",
+    )[0].tolist()
+
+    hits = client.vectors.vector_manager.query_store(
+        store_name=store,
+        query_vector=qvec,
+        top_k=topk,
+        filters=filters
+    )
+
+    results = [
+        str(h['metadata']['item_id'])
+        for i, h in enumerate(hits)
+    ]
+
+    return results
+
+
+def get_recommendations_by_description(params, db_name):
+    """
+    This function is used by the assistant to perform recommendations of items that match a given
+    textual description.
+
+    :param params: dictionary containing all the arguments to process the description-based
+    recommendations
+    :param db_name: name of the database where SQL queries of get_item_metadata have to be performed
+
+    :return: a prompt for the LLM that the LLM will use as additional context to prepare the final
+    answer
+    """
+    if 'user' in params and 'query' in params:
+        user = params.get('user')
+        query = params.get('query')
+        # create RecBole environment if it is not already created
+        if 'config' not in globals():
+            create_recbole_environment(os.getenv("RECSYS_MODEL_PATH"))
+        uid_series = dataset.token2id(dataset.uid_field, [str(user)])
+        matched = None
+        corrections = []
+        failed_corrections = []
+        # check if it is a constrained recommendation
+        if 'filters' in params:
+            matched = False
+            filters = params.get('filters')
+            # execute sql query based on the filters to get items that satisfy the filters
+            qdrant_filters_dict, corrections, failed_corrections = define_qdrant_filters(filters)
+            if qdrant_filters_dict:
+                item_ids = vector_store_search(query, filters=qdrant_filters_dict)
+                recommended_items = recommend_given_items(uid_series, item_ids)
+                matched = True
+            else:
+                item_ids = vector_store_search(query)
+                recommended_items = recommend_given_items(uid_series, item_ids)
+        else:
+            # if no filters are given, we can directly perform the vector store search with the
+            # LLM generated query
+            item_ids = vector_store_search(query)
+            recommended_items = recommend_given_items(uid_series, item_ids)
+
+        print(recommended_items)
+        response_dict = get_item_metadata(params={'items': recommended_items,
+                                                  'specification': ["item_id", "title", "genres", "director", "description"]},
+                                          db_name=db_name, return_dict=True)
+
+        # get items interacted by user ID
+        # item_ids = get_interacted_items(params={'user': int(user)}, db_name=db_name, return_list=True)
+        # # get metadata of interacted items
+        # interaction_dict = get_item_metadata(params={'items': item_ids,
+        #                                              'specification': ["item_id", "title", "genres", "director", "producer", "actors", "release_date", "duration", "imdb_rating", "description"]},
+        #                                      db_name=db_name, return_dict=True)
+        #
+        # print("\n" + str(interaction_dict) + "\n")
+        print("\n" + str(response_dict) + "\n")
+        failed_corr_text = f"Note that corrections for these fields have been tried but failed: {failed_corrections}, so the recommendation output will not take these filters into condideration."
+        void_str = ''
+        return json.dumps({
+            "status": "success",
+            "message": f"{f'The given conditions did not match any item in the database. Hence, standard vector store search (without filters) has been performed. ' if matched is not None and not matched else ''}{f'Note that the following corrections have been made to retrieve items through vector store search: {corrections}. Please, explain the user that you have been able to perform the search only thanks to these adjustments. {failed_corr_text if failed_corrections else void_str}' if corrections else ''}Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. Please, use all the information included in the generated dictionary when listing recommendations. Please, explain the users that the recommended items are items that match the description the user gave in the prompt."
+        })
+    else:
+        return json.dumps({
+            "status": "failure",
+            "message": f"Something went wrong in the function calling. The generated JSON "
+                       f"is invalid.",
+        })
+
+
+def get_recommendations_by_similar_item(params, db_name):
+    """
+    This function is used by the assistant to perform recommendations of items that are similar
+    to a given item.
+
+    :param params: dictionary containing all the arguments to process the recommendations
+    :param db_name: name of the database where SQL queries of get_item_metadata have to be performed
+
+    :return: a prompt for the LLM that the LLM will use as additional context to prepare the final
+    answer
+    """
+    if 'user' in params and 'item' in params:
+        user = params.get('user')
+        item = params.get('item')
+        # create RecBole environment if it is not already created
+        if 'config' not in globals():
+            create_recbole_environment(os.getenv("RECSYS_MODEL_PATH"))
+        uid_series = dataset.token2id(dataset.uid_field, [str(user)])
+        # get item description
+        item_desc = get_item_metadata(params={'items': [item],
+                                              'specification': ["item_id", "description"]},
+                                          db_name=db_name, return_dict=True)
+        if item_desc[item]["description"] != "unknown":
+            item_ids = vector_store_search(item_desc[item]["description"], topk=11)
+            # remove the first item -> it is the item we are using for finding similar items
+            # it is the first in the ranking of the vector store search because the description
+            # matches perfectly. We are interested in the other 29 items
+            item_ids = item_ids[1:]
+            print("Vector store search results: " + str(item_ids))
+            # 10 items are retrieved through vector store search, 5 of them will be recommended to
+            # the user based on what the recommender system predict
+            recommended_items = recommend_given_items(uid_series, item_ids)
+
+            print(recommended_items)
+            response_dict = get_item_metadata(params={'items': recommended_items,
+                                                      'specification': ["item_id", "title", "genres", "director", "description"]},
+                                              db_name=db_name, return_dict=True)
+
+            print("\n" + str(response_dict) + "\n")
+            return json.dumps({
+                "status": "success",
+                "message": f"Suggested recommendations for user {user}: {response_dict}. Please, include the movie ID when listing the recommended items. Please, use all the information included in the generated dictionary when listing recommendations. Please, explain the users that the recommended items are items that are similar to the item provided in the user prompt (i.e., item {item}). The similarity is based on the description of the item, that is: {item_desc}. Please, explain this important aspect."
+            })
+        else:
+            return json.dumps({
+                "status": "failure",
+                "message": f"Something went wrong in the function calling. The provided item ID does not have a description in the database, so it is impossible to determine similar items.",
+            })
+    else:
+        return json.dumps({
+            "status": "failure",
+            "message": f"Something went wrong in the function calling. The generated JSON "
+                       f"is invalid.",
+        })
+
+
 def get_item_metadata(params, db_name, return_dict=False):
     """
     This function is used by the assistant to retrieve the metadata of items based on user requests.
@@ -155,7 +319,7 @@ def get_item_metadata(params, db_name, return_dict=False):
         elif result and return_dict:
             r_dict = {}
             for j in range(len(result)):
-                r_dict[result[j][0]] = {}
+                r_dict[result[j][0]] = {}  # in 0-position there is the item ID of the retrieved item
                 for i, spec in enumerate(specification):
                     r_dict[result[j][0]][spec] = result[j][i] if result[j][i] is not None else "unknown"
             return r_dict

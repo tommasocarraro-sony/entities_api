@@ -229,8 +229,8 @@ def execute_sql_query(db_name, sql_query):
 
 def define_sql_query(table, conditions):
     """
-    This function defines a SQL query given the passed conditions (filter argument in the
-    LLM-generated JSON for function calling)
+    This function defines a SQL query given the passed conditions (filter
+    argument in the LLM-generated JSON for function calling)
     :param table: database table name
     :param conditions: filters to create SQL query
     :return: SQL query string ready to be executed
@@ -274,6 +274,86 @@ def define_sql_query(table, conditions):
         return sql_query, corrections, failed_corrections
     else:
         return None, corrections, failed_corrections
+
+
+def define_qdrant_filters(conditions):
+    """
+    This function defines a Qdrant filters dict given the passed conditions (filter
+    argument in the LLM-generated JSON for function calling)
+    :param conditions: filters to create the Qdrant filters dict
+    :return: Qdrant filters dict
+    """
+    filters = {}
+    corrections, failed_corrections = [], []
+    if ('genres' in conditions or 'actors' in conditions or
+                               'director' in conditions or 'producer' in conditions or
+                               'release_date' in conditions or 'duration' in conditions or
+                               'imdb_rating' in conditions):
+        # process textual features
+        process_textual_qdrant("genres", conditions, genres_list, filters, corrections, failed_corrections)
+        process_textual_qdrant("actors", conditions, actors_list, filters, corrections, failed_corrections)
+        process_textual_qdrant("director", conditions, directors_list, filters, corrections, failed_corrections)
+        process_textual_qdrant("producer", conditions, producers_list, filters, corrections, failed_corrections)
+
+        # process numerical features
+        process_numerical_qdrant("release_date", conditions, filters)
+        process_numerical_qdrant("duration", conditions, filters)
+        process_numerical_qdrant("imdb_rating", conditions, filters)
+
+        return filters, corrections, failed_corrections
+    else:
+        return {}, corrections, failed_corrections
+
+
+def process_textual_qdrant(feature, conditions, names_list, filters, corrections, failed_corrections):
+    """
+    Process a textual feature for creating the Qdrant filters dict.
+
+    :param feature: name of the feature to be processed
+    :param conditions: the filters provided by the user in the prompt
+    :param names_list: list of valid names
+    :param filters: dict containing Qdrant filters
+    :param corrections: list of corrections performed thanks to fuzzy matching
+    :param failed_corrections: list of failed corrections
+    """
+    if feature in conditions:
+        f = conditions[feature]
+        for f_ in f:
+            # perform fuzzy matching
+            f_corrected = correct_name(f_, names_list)
+            if f_corrected is None:
+                print(f"ERROR: {f_} is not a valid label for feature {feature}")
+                failed_corrections.append(f_)
+                continue  # if the name is not valid, we do not perform the query with that name
+            if f_corrected != f_:
+                print(f"Corrected name {f_} with name {f_corrected}")
+                corrections.append(f"{f_} -> {f_corrected}")
+            if "filter" not in filters:
+                filters["filter"] = {"must": []}
+            filters["filter"]["must"].append({"key": feature, "match": {"text": f_corrected}})
+
+
+def process_numerical_qdrant(feature, conditions, filters):
+    """
+    Process a numerical feature for creating the Qdrant filters dict.
+
+    :param feature: name of the feature to be processed
+    :param conditions: conditions provided by the user in the prompt
+    :param filters: dict containing Qdrant filters
+    """
+    if feature in conditions:
+        f = conditions[feature]
+        request = None
+        if isinstance(f, dict):
+            request = f['request']
+            f = f['threshold']
+        if "filter" not in filters:
+            filters["filter"] = {"must": []}
+        if request is not None:
+            filters["filter"]["must"].append({"key": feature, "range": {"gt": f}
+            if request == "higher" else {"lt": f}})
+        else:
+            filters["filter"]["must"].append({"key": feature, "match": {"value": f}})
 
 
 def process_textual(feature, conditions, names_list, query_parts, corrections, failed_corrections):
@@ -499,7 +579,6 @@ def set_env_variable(file_path, key, value):
         file.writelines(lines)
 
 
-# todo define a function that just performs store seaches, the function can call the get_top_k_recommendations
-# todo provide examples for the function
+
 # todo understand how to reply to complex questions like "provide recommendations for movies similar to item ID xyz, another tool or the same?"
 # todo add function call handler for vector store search, implement the search -> create filters instead of define SQL query

@@ -4,9 +4,9 @@ import os
 load_dotenv()
 os.environ.pop("DATABASE_URL", None)
 import chainlit as cl
-from src.my_app.function_definitions import RECOMMENDATION, METADATA, INTERACTION, RECOMMENDATION_VECTOR
+from src.my_app.function_definitions import RECOMMENDATION, METADATA, INTERACTION, RECOMMENDATION_VECTOR, RECOMMENDATION_SIMILAR_ITEM
 from src.my_app.utils import create_app_environment
-from src.my_app.functions import get_item_metadata, get_interacted_items, get_top_k_recommendations
+from src.my_app.functions import get_item_metadata, get_interacted_items, get_top_k_recommendations, get_recommendations_by_similar_item, get_recommendations_by_description
 
 # todo look for item metadata with multiple IDs instead of doing multiple searches in the table
 # todo create a summary of a user based on its past interactions, depict the user based on his/her past interactions
@@ -15,7 +15,8 @@ from src.my_app.functions import get_item_metadata, get_interacted_items, get_to
 entities_setup = {
     "api_key": os.getenv("ENTITIES_API_KEY"),
     "user_id": os.getenv("ENTITIES_USER_ID"),
-    "assistant_tools": [RECOMMENDATION, METADATA, INTERACTION, RECOMMENDATION_VECTOR],
+    "assistant_tools": [RECOMMENDATION, METADATA, INTERACTION, RECOMMENDATION_VECTOR,
+                        RECOMMENDATION_SIMILAR_ITEM],
     "vector_store_name": "ml-100k_metadata_vector_store"
 }
 
@@ -35,6 +36,10 @@ def function_call_handler(tool_name, arguments):
         return get_item_metadata(arguments, db_name)
     if tool_name == "get_interacted_items":
         return get_interacted_items(arguments, db_name)
+    if tool_name == "get_recommendations_by_description":
+        return get_recommendations_by_description(arguments, db_name)
+    if tool_name == "get_recommendations_by_similar_item":
+        return get_recommendations_by_similar_item(arguments, db_name)
 
 
 @on_message
