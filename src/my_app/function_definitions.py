@@ -669,6 +669,26 @@ RECOMMENDATION_VECTOR = {
                             }
                         }
                     }
+                },
+                "Provide recommendations for user 104 given the fact she/he is happy": {
+                    "name": "get_recommendations_by_description",
+                    "arguments": {
+                        "user": 104,
+                        "query": "comedy, light-hearted and funny, romantic, humor, adventure, fantasy, fun escapism, upbeat energy, musical. energetic, colorful, emotionally uplifting, stories of triumph, connection, personal growth.",
+                        "filters": {
+                            "genres": ["comedy", "romance", "fantasy", "adventure", "musical"],
+                        }
+                    }
+                },
+                "Provide recommendations for user 23 given the fact she/he is depressed": {
+                    "name": "get_recommendations_by_description",
+                        "arguments": {
+                            "user": 23,
+                            "query": "sad drama, melancholic films, indie films, introspective, emotionally raw, comfort films, nostalgic, comedy, mood booster, inspirational story.",
+                            "filters": {
+                                "genres": ["drama", "comedy"],
+                            }
+                        }
                 }
             }
         }
