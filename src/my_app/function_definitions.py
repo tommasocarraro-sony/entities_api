@@ -132,6 +132,13 @@ RECOMMENDATION = {
                             "type": "string",
                             "enum": ["popular", "unpopular"],
                             "description": "Whether to filter for popular or unpopular movies."
+                        },
+                        "popularity_by_age_category": {
+                            "type": "string",
+                            "enum": ["popular_kid", "popular_teenager", "popular_young_adult",
+                                     "popular_adult", "popular_senior"],
+                            "description": "Whether to filter for popular or unpopular movies on a "
+                                           "specific age group."
                         }
                     },
                     "examples": {
@@ -289,7 +296,28 @@ RECOMMENDATION = {
                                 "genres": ["action"],
                                 "release_date": 1994
                             }
-                        }
+                        },
+                        "Filters for movies with Tom Cruise popular among young adults": {
+                            "filters": {
+                                "actors": ["Tom Cruise"],
+                                "popularity_by_age_category": "popular_young_adult"
+                            }
+                        },
+                        "Filters for movies released prior to 1996 popular among kids": {
+                            "filters": {
+                                "release_date": {
+                                    "request": "lower",
+                                    "threshold": 1996
+                                },
+                                "popularity_by_age_category": "popular_kid"
+                            }
+                        },
+                        "Filters for drama movies popular among teenagers": {
+                            "filters": {
+                                "genres": ["drama"],
+                                "popularity_by_age_category": "popular_teenager"
+                            }
+                        },
                     }
                 }
             },
@@ -334,6 +362,17 @@ RECOMMENDATION = {
                         "k": 5,
                         "filters": {
                             "genres": ["sci-fi"]
+                        }
+                    }
+                },
+                "Recommend some movies with Tom Cruise that are popular among teenagers for user 45": {
+                    "name": "get_top_k_recommendations",
+                    "arguments": {
+                        "user": 45,
+                        "k": 5,
+                        "filters": {
+                            "actors": ["Tom Cruise"],
+                            "popularity_by_age_category": "popular_teenager"
                         }
                     }
                 }
@@ -476,6 +515,13 @@ RECOMMENDATION_VECTOR = {
                             "type": "string",
                             "enum": ["popular", "unpopular"],
                             "description": "Whether to filter for popular or unpopular movies."
+                        },
+                        "popularity_by_age_category": {
+                            "type": "string",
+                            "enum": ["popular_kid", "popular_teenager", "popular_young_adult",
+                                     "popular_adult", "popular_senior"],
+                            "description": "Whether to filter for popular or unpopular movies on a "
+                                           "specific age group."
                         }
                     },
                     "examples": {
@@ -633,7 +679,28 @@ RECOMMENDATION_VECTOR = {
                                 "genres": ["action"],
                                 "release_date": 1994
                             }
-                        }
+                        },
+                        "Filters for movies with Tom Cruise popular among young adults": {
+                            "filters": {
+                                "actors": ["Tom Cruise"],
+                                "popularity_by_age_category": "popular_young_adult"
+                            }
+                        },
+                        "Filters for movies released prior to 1996 popular among kids": {
+                            "filters": {
+                                "release_date": {
+                                    "request": "lower",
+                                    "threshold": 1996
+                                },
+                                "popularity_by_age_category": "popular_kid"
+                            }
+                        },
+                        "Filters for drama movies popular among teenagers": {
+                            "filters": {
+                                "genres": ["drama"],
+                                "popularity_by_age_category": "popular_teenager"
+                            }
+                        },
                     }
                 }
             },
@@ -687,6 +754,17 @@ RECOMMENDATION_VECTOR = {
                         "query": "sad drama, melancholic films, indie films, introspective, emotionally raw, comfort films, nostalgic, comedy, mood booster, inspirational story.",
                         "filters": {
                             "genres": ["drama", "comedy"],
+                        }
+                    }
+                },
+                "Recommend some movies for user 45 that are popular among teenagers and where the main character is kidnapped": {
+                    "name": "get_recommendations_by_description",
+                    "arguments": {
+                        "user": 45,
+                        "query": "main character is kidnapped",
+                        "filters": {
+                            "actors": ["Tom Cruise"],
+                            "popularity_by_age_category": "popular_teenager"
                         }
                     }
                 }

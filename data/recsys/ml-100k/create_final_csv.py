@@ -1,5 +1,6 @@
 import pandas as pd
 import ast
+from src.my_app.utils import convert_age_to_string
 
 # Genre mapping
 genre_map = {
@@ -101,6 +102,44 @@ def get_popularity_label(count, low_q, high_q):
         return 'average'
 
 
+def add_popularity_columns_by_age_group(ratings_path, users_path, items_df):
+    """
+    Adds binary columns to ratings_df indicating whether each item is popular within each age group.
+
+    Args:
+        ratings_path (str): Path to the ratings CSV file.
+        users_path (str): Path to the users CSV file.
+        items_df (pd.DataFrame): Items DataFrame.
+    """
+    users_df = pd.read_csv(users_path, sep="\t")
+    ratings_df = pd.read_csv(ratings_path, sep="\t")
+    # Convert age to age category
+    users_df['age_category'] = users_df['age:token'].astype(int).apply(convert_age_to_string)
+
+    # Merge ratings with user info
+    merged_df = ratings_df.merge(users_df[['user_id:token', 'age_category']], on='user_id:token')
+
+    # Identify all age groups
+    age_groups = ["kid", "teenager", "young adult", "adult", "senior"]
+
+    for age_group in age_groups:
+        # Filter to the current group
+        group_df = merged_df[merged_df['age_category'] == age_group]
+
+        # Count ratings per item in this group
+        item_counts = group_df['item_id:token'].value_counts()
+
+        # Compute 0.9 quantile
+        threshold = item_counts.quantile(0.9)
+
+        # Get popular items in this group
+        popular_items = set(item_counts[item_counts >= threshold].index)
+
+        # Create binary column for this group
+        column_name = f'popular_{age_group.replace(" ", "_")}'
+        items_df[column_name] = items_df['item_id'].apply(lambda x: 1 if x in popular_items else 0)
+
+
 df['genres_list'] = df['genres'].apply(map_genre_ids, args=(True, ))
 df['genres'] = df['genres'].apply(map_genre_ids)
 df['release_date'] = df['release_date'].str.extract(r'(\d{4})')
@@ -115,10 +154,13 @@ item_rating_counts, low_q, high_q = analyze_item_popularity("./ml-100k.inter")
 df['item_rating_count'] = df['item_id'].map(item_rating_counts)
 df['popularity'] = df['item_rating_count'].apply(get_popularity_label, args=(low_q, high_q))
 
-ordered_columns = ['item_id', 'title', 'genres', 'director', 'producer', 'actors', 'release_date', 'duration', 'age_rating', 'imdb_rating', 'imdb_num_reviews', 'item_rating_count', 'popularity', 'description', 'genres_list', 'directors_list', 'producers_list', 'actors_list']
+ordered_columns = ['item_id', 'title', 'genres', 'director', 'producer', 'actors', 'release_date', 'duration', 'age_rating', 'imdb_rating', 'imdb_num_reviews', 'item_rating_count', 'popularity', 'description', 'genres_list', 'directors_list', 'producers_list', 'actors_list', 'popular_kid', 'popular_teenager', 'popular_young_adult', 'popular_adult', 'popular_senior']
 
 # fill remaining NaN values with unknown
 df.fillna("unknown", inplace=True)
+
+# compute popularity based on age category
+add_popularity_columns_by_age_group("./ml-100k.inter", "./ml-100k.user", df)
 
 # Save the final CSV
 df.to_csv('final_ml-100k.csv', index=False, sep='\t', columns=ordered_columns)

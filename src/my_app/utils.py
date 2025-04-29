@@ -80,6 +80,11 @@ def create_ml100k_db(db_name):
                     imdb_num_reviews INTEGER,
                     item_rating_count INTEGER,
                     popularity TEXT,
+                    popular_kid INTEGER,
+                    popular_teenager INTEGER,
+                    popular_young_adult INTEGER,
+                    popular_adult INTEGER,
+                    popular_senior INTEGER,
                     description TEXT)''')
 
     # load data
@@ -107,12 +112,18 @@ def create_ml100k_db(db_name):
             item_rating_count = int(parts[11])
             popularity = parts[12]
             description = parts[13] if parts[13] != 'unknown' else None
+            popular_kid = int(parts[18])
+            popular_teenager = int(parts[19])
+            popular_young_adult = int(parts[20])
+            popular_adult = int(parts[21])
+            popular_senior = int(parts[22])
 
             # Insert into the table
-            cursor.execute('INSERT OR IGNORE INTO items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            cursor.execute('INSERT OR IGNORE INTO items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                            (item_id, movie_title, genres, director, producer, actors,
                             release_year, duration, age_rating, imdb_rating, imdb_num_reviews,
-                            item_rating_count, popularity, description))
+                            item_rating_count, popularity, popular_kid, popular_teenager,
+                            popular_young_adult, popular_adult, popular_senior, description))
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS interactions (user_id INTEGER PRIMARY KEY, items TEXT)''')
 
@@ -285,7 +296,8 @@ def define_sql_query(table, conditions):
     elif table == "items" and ('genres' in conditions or 'actors' in conditions or
                                'director' in conditions or 'producer' in conditions or
                                'release_date' in conditions or 'duration' in conditions or
-                               'imdb_rating' in conditions or 'popularity' in conditions):
+                               'imdb_rating' in conditions or 'popularity' in conditions or
+                               'popularity_by_age_category' in conditions):
         # process textual features
         process_textual("genres", conditions, genres_list, query_parts, corrections, failed_corrections)
         process_textual("actors", conditions, actors_list, query_parts, corrections, failed_corrections)
@@ -294,6 +306,9 @@ def define_sql_query(table, conditions):
         if 'popularity' in conditions:
             popularity = conditions['popularity']
             query_parts.append(f"popularity = '{popularity}'")
+        if "popularity_by_age_category" in conditions:
+            popularity_by_age_category = conditions['popularity_by_age_category']
+            query_parts.append(f"{popularity_by_age_category} = 1")
 
         # process numerical features
         process_numerical("release_date", conditions, query_parts)
@@ -328,7 +343,8 @@ def define_qdrant_filters(conditions):
     if ('genres' in conditions or 'actors' in conditions or
                                'director' in conditions or 'producer' in conditions or
                                'release_date' in conditions or 'duration' in conditions or
-                               'imdb_rating' in conditions or 'popularity' in conditions):
+                               'imdb_rating' in conditions or 'popularity' in conditions or
+                               'popularity_by_age_category' in conditions):
         # process textual features
         process_textual_qdrant("genres", conditions, genres_list, filters, corrections, failed_corrections)
         process_textual_qdrant("actors", conditions, actors_list, filters, corrections, failed_corrections)
@@ -338,6 +354,10 @@ def define_qdrant_filters(conditions):
             if "filter" not in filters:
                 filters["filter"] = {"must": []}
             filters["filter"]["must"].append({"key": 'popularity', "match": {"text": conditions["popularity"]}})
+        if "popularity_by_age_category" in conditions:
+            if "filter" not in filters:
+                filters["filter"] = {"must": []}
+            filters["filter"]["must"].append({"key": conditions['popularity_by_age_category'], "match": {"value": 1}})
 
         # process numerical features
         process_numerical_qdrant("release_date", conditions, filters)
@@ -555,7 +575,12 @@ def vector_store_setup_movielens(client, user_id, vector_store_name):
                     "imdb_num_reviews": convert_num_reviews(mv["imdb_num_reviews"]) if mv["imdb_num_reviews"] != "unknown" else None,
                     "item_rating_count": int(mv["item_rating_count"]),
                     "popularity": mv["popularity"],
-                    "description": mv["description"] if mv["description"] != "unknown" else None
+                    "description": mv["description"] if mv["description"] != "unknown" else None,
+                    "popular_kid": mv["popular_kid"],
+                    "popular_teenager": mv["popular_teenager"],
+                    "popular_young_adult": mv["popular_young_adult"],
+                    "popular_adult": mv["popular_adult"],
+                    "popular_senior": mv["popular_senior"]
                 }
 
                 client.vectors.vector_manager.add_to_store(
