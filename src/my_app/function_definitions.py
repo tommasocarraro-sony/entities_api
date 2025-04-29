@@ -682,13 +682,13 @@ RECOMMENDATION_VECTOR = {
                 },
                 "Provide recommendations for user 23 given the fact she/he is depressed": {
                     "name": "get_recommendations_by_description",
-                        "arguments": {
-                            "user": 23,
-                            "query": "sad drama, melancholic films, indie films, introspective, emotionally raw, comfort films, nostalgic, comedy, mood booster, inspirational story.",
-                            "filters": {
-                                "genres": ["drama", "comedy"],
-                            }
+                    "arguments": {
+                        "user": 23,
+                        "query": "sad drama, melancholic films, indie films, introspective, emotionally raw, comfort films, nostalgic, comedy, mood booster, inspirational story.",
+                        "filters": {
+                            "genres": ["drama", "comedy"],
                         }
+                    }
                 }
             }
         }

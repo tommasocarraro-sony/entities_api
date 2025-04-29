@@ -145,6 +145,20 @@ def create_ml100k_db(db_name):
         cursor.execute('INSERT OR REPLACE INTO interactions (user_id, items) VALUES (?, ?)',
                        (user_id, items_str))
 
+    # create user table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, age_category TEXT, gender TEXT)''')
+
+    with open('./data/recsys/ml-100k/ml-100k.user', 'r') as f:
+        first_line = True
+        for line in f:
+            if first_line:
+                first_line = False
+                continue
+            user_id, age, gender, occupation, location = line.strip().split('\t')
+            cursor.execute('INSERT OR REPLACE INTO users (user_id, age_category, gender) VALUES (?, ?, ?)',
+                           (user_id, convert_age_to_string(int(age)), gender))
+
+
     conn.commit()
     conn.close()
 
@@ -154,6 +168,25 @@ def create_ml100k_db(db_name):
     producers_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "producers_list")
     directors_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "directors_list")
     genres_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "genres_list")
+
+
+def convert_age_to_string(age):
+    """
+    This simply converts integer ages into age categories.
+
+    :param age: age of the person
+    :return: string indicating the age category of the person
+    """
+    if age <= 12:
+        return "kid"
+    if 12 < age < 20:
+        return "teenager"
+    if 20 <= age <= 30:
+        return "young adult"
+    if 30 < age <= 60:
+        return "adult"
+    if 60 < age <= 100:
+        return "senior"
 
 
 def extract_unique_names(csv_path, column):
