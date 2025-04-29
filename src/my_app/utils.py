@@ -78,6 +78,8 @@ def create_ml100k_db(db_name):
                     age_rating TEXT,
                     imdb_rating FLOAT,
                     imdb_num_reviews INTEGER,
+                    item_rating_count INTEGER,
+                    popularity TEXT,
                     description TEXT)''')
 
     # load data
@@ -102,13 +104,15 @@ def create_ml100k_db(db_name):
             age_rating = parts[8] if parts[8] != 'unknown' else None
             imdb_rating = float(parts[9]) if parts[9] != 'unknown' else None
             imdb_num_reviews = convert_num_reviews(parts[10]) if parts[10] != 'unknown' else None
-            description = parts[11] if parts[11] != 'unknown' else None
+            item_rating_count = int(parts[11])
+            popularity = parts[12]
+            description = parts[13] if parts[13] != 'unknown' else None
 
             # Insert into the table
-            cursor.execute('INSERT OR IGNORE INTO items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            cursor.execute('INSERT OR IGNORE INTO items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                            (item_id, movie_title, genres, director, producer, actors,
                             release_year, duration, age_rating, imdb_rating, imdb_num_reviews,
-                            description))
+                            item_rating_count, popularity, description))
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS interactions (user_id INTEGER PRIMARY KEY, items TEXT)''')
 
@@ -248,12 +252,15 @@ def define_sql_query(table, conditions):
     elif table == "items" and ('genres' in conditions or 'actors' in conditions or
                                'director' in conditions or 'producer' in conditions or
                                'release_date' in conditions or 'duration' in conditions or
-                               'imdb_rating' in conditions):
+                               'imdb_rating' in conditions or 'popularity' in conditions):
         # process textual features
         process_textual("genres", conditions, genres_list, query_parts, corrections, failed_corrections)
         process_textual("actors", conditions, actors_list, query_parts, corrections, failed_corrections)
         process_textual("director", conditions, directors_list, query_parts, corrections, failed_corrections)
         process_textual("producer", conditions, producers_list, query_parts, corrections, failed_corrections)
+        if 'popularity' in conditions:
+            popularity = conditions['popularity']
+            query_parts.append(f"popularity = '{popularity}'")
 
         # process numerical features
         process_numerical("release_date", conditions, query_parts)
@@ -288,12 +295,16 @@ def define_qdrant_filters(conditions):
     if ('genres' in conditions or 'actors' in conditions or
                                'director' in conditions or 'producer' in conditions or
                                'release_date' in conditions or 'duration' in conditions or
-                               'imdb_rating' in conditions):
+                               'imdb_rating' in conditions or 'popularity' in conditions):
         # process textual features
         process_textual_qdrant("genres", conditions, genres_list, filters, corrections, failed_corrections)
         process_textual_qdrant("actors", conditions, actors_list, filters, corrections, failed_corrections)
         process_textual_qdrant("director", conditions, directors_list, filters, corrections, failed_corrections)
         process_textual_qdrant("producer", conditions, producers_list, filters, corrections, failed_corrections)
+        if "popularity" in conditions:
+            if "filter" not in filters:
+                filters["filter"] = {"must": []}
+            filters["filter"]["must"].append({"key": 'popularity', "match": {"text": conditions["popularity"]}})
 
         # process numerical features
         process_numerical_qdrant("release_date", conditions, filters)
@@ -509,6 +520,8 @@ def vector_store_setup_movielens(client, user_id, vector_store_name):
                     "age_rating": mv["age_rating"] if mv["age_rating"] != "unknown" else None,
                     "imdb_rating": float(mv["imdb_rating"]) if mv["imdb_rating"] != "unknown" else None,
                     "imdb_num_reviews": convert_num_reviews(mv["imdb_num_reviews"]) if mv["imdb_num_reviews"] != "unknown" else None,
+                    "item_rating_count": int(mv["item_rating_count"]),
+                    "popularity": mv["popularity"],
                     "description": mv["description"] if mv["description"] != "unknown" else None
                 }
 
@@ -577,8 +590,3 @@ def set_env_variable(file_path, key, value):
     # Write back the file
     with open(file_path, 'w') as file:
         file.writelines(lines)
-
-
-
-# todo understand how to reply to complex questions like "provide recommendations for movies similar to item ID xyz, another tool or the same?"
-# todo add function call handler for vector store search, implement the search -> create filters instead of define SQL query

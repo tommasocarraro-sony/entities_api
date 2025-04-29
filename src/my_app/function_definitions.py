@@ -128,11 +128,11 @@ RECOMMENDATION = {
                                 }
                             ]
                         },
-                        # "popularity": {
-                        #     "type": "string",
-                        #     "enum": ["popular", "unpopular"],
-                        #     "description": "Whether to filter for popular or unpopular movies."
-                        # }
+                        "popularity": {
+                            "type": "string",
+                            "enum": ["popular", "unpopular"],
+                            "description": "Whether to filter for popular or unpopular movies."
+                        }
                     },
                     "examples": {
                         "Filters for highly IMDb rated sci-fi movies starring Tom Cruise": {
@@ -171,15 +171,15 @@ RECOMMENDATION = {
                                 "threshold": 90
                             }
                         },
-                        # "Filters for old but popular movies": {
-                        #     "filters": {
-                        #         "release_date": {
-                        #             "request": "lower",
-                        #             "threshold": 1980
-                        #         },
-                        #         "popularity": "popular"
-                        #     }
-                        # },
+                        "Filters for old but popular movies": {
+                            "filters": {
+                                "release_date": {
+                                    "request": "lower",
+                                    "threshold": 1980
+                                },
+                                "popularity": "popular"
+                            }
+                        },
                         "Filters for long movies directed by Christopher Nolan and recently released": {
                             "filters": {
                                 "director": ["Christopher Nolan"],
@@ -472,11 +472,11 @@ RECOMMENDATION_VECTOR = {
                                 }
                             ]
                         },
-                        # "popularity": {
-                        #     "type": "string",
-                        #     "enum": ["popular", "unpopular"],
-                        #     "description": "Whether to filter for popular or unpopular movies."
-                        # }
+                        "popularity": {
+                            "type": "string",
+                            "enum": ["popular", "unpopular"],
+                            "description": "Whether to filter for popular or unpopular movies."
+                        }
                     },
                     "examples": {
                         "Filters for highly IMDb rated sci-fi movies starring Tom Cruise": {
@@ -515,15 +515,15 @@ RECOMMENDATION_VECTOR = {
                                 "threshold": 90
                             }
                         },
-                        # "Filters for old but popular movies": {
-                        #     "filters": {
-                        #         "release_date": {
-                        #             "request": "lower",
-                        #             "threshold": 1980
-                        #         },
-                        #         "popularity": "popular"
-                        #     }
-                        # },
+                        "Filters for old but popular movies": {
+                            "filters": {
+                                "release_date": {
+                                    "request": "lower",
+                                    "threshold": 1980
+                                },
+                                "popularity": "popular"
+                            }
+                        },
                         "Filters for long movies directed by Christopher Nolan and recently released": {
                             "filters": {
                                 "director": ["Christopher Nolan"],
@@ -737,7 +737,7 @@ METADATA = {
                     "description": "List of item metadata features to be included in the response. Available features"
                                    "are: [\"title\", \"description\", \"genres\", \"director\", "
                                    "\"producer\", \"duration\", \"release_date\", \"actors\", "
-                                   "\"imdb_rating\"].",  # \"avg_rating\", \"country\", \"popularity\"
+                                   "\"imdb_rating\"], \"popularity\".",  # \"avg_rating\", \"country\", \"popularity\"
                     "examples": {
                         "Specification for when actors and director are the requested features": {
                             "specification": ["actors", "director"]
@@ -748,9 +748,9 @@ METADATA = {
                         "Specification for when full metadata is requested": {
                             "specification": ["title", "description", "genres", "director", "producer", "duration", "release_date", "actors", "imdb_rating"]  # "avg_rating", "country", "popularity"
                         },
-                        # "Specification for when the average rating, the IMDb rating, and the popularity are the requested features": {
-                        #     "specification": ["avg_rating", "imdb_rating", "popularity"]
-                        # },
+                        "Specification for when the IMDb rating and the popularity are the requested features": {
+                            "specification": ["imdb_rating", "popularity"]
+                        },
                         "Specification for when director, producer, and release date are the requested features": {
                             "specification": ["director", "producer", "release_date"]
                         },
@@ -773,7 +773,7 @@ METADATA = {
                 "name": "get_item_metadata",
                 "arguments": {
                     "item ": [47],
-                    "specification": ["title", "description", "genres", "director", "producer", "duration", "release_date", "actors", "imdb_rating"]  # "avg_rating", "country", , "popularity"
+                    "specification": ["title", "description", "genres", "director", "producer", "duration", "release_date", "actors", "imdb_rating", "popularity"]  # "avg_rating", "country"
                 }
             },
             "What are the actors of item 54 and 65?": {
@@ -797,13 +797,13 @@ METADATA = {
                     "specification": ["release_date", "duration"]
                 }
             },
-            # "Show the IMDb rating and popularity of item 200, 123, and 45": {
-            #     "name": "get_item_metadata",
-            #     "arguments": {
-            #         "items": [200, 123, 45],
-            #         "specification": ["imdb_rating", "popularity"]
-            #     }
-            # },
+            "Show the IMDb rating and popularity of item 200, 123, and 45": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "items": [200, 123, 45],
+                    "specification": ["imdb_rating", "popularity"]
+                }
+            },
             # "Provide the title and average rating of item 77": {
             #     "name": "get_item_metadata",
             #     "arguments": {
@@ -839,13 +839,13 @@ METADATA = {
             #         "specification": ["genres", "country"]
             #     }
             # },
-            # "Show me the title, director, and popularity of item 120 and 90": {
-            #     "name": "get_item_metadata",
-            #     "arguments": {
-            #         "items": [120, 90],
-            #         "specification": ["title", "director", "popularity"]
-            #     }
-            # },
+            "Show me the title, director, and popularity of item 120 and 90": {
+                "name": "get_item_metadata",
+                "arguments": {
+                    "items": [120, 90],
+                    "specification": ["title", "director", "popularity"]
+                }
+            },
             # "Give me the average rating and duration for item 50, 34, 56, and 78": {
             #     "name": "get_item_metadata",
             #     "arguments": {

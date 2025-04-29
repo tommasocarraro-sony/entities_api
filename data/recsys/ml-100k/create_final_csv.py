@@ -60,6 +60,47 @@ def format_names(name_list):
         return ", ".join(name_list[:-1]) + ", and " + name_list[-1]
 
 
+def analyze_item_popularity(csv_path, quantiles=(0.25, 0.9)):
+    """
+    Loads a ratings CSV, counts the number of ratings per item, and computes quantiles.
+
+    Args:
+        csv_path (str): Path to the CSV file.
+        quantiles (list): List of quantiles to compute, e.g., [0.25, 0.5, 0.75, 0.9].
+
+    Returns:
+        quantile_values (pd.Series): Quantile thresholds for rating counts.
+    """
+    # Load CSV
+    df = pd.read_csv(csv_path, sep='\t')
+
+    # Count number of ratings per item
+    item_rating_counts = df['item_id:token'].value_counts().sort_values(ascending=False)
+
+    # Compute quantiles
+    quantile_values = list(item_rating_counts.quantile(quantiles))
+
+    return item_rating_counts, quantile_values[0], quantile_values[1]
+
+
+def get_popularity_label(count, low_q, high_q):
+    """
+    It computes whether an item is popular based on the number of ratings and quantiles of the
+    rating distribution.
+
+    :param count: number of ratings of the item
+    :param low_q: low quantile
+    :param high_q: high quantile
+    :return: popularity value
+    """
+    if count >= high_q:
+        return 'popular'
+    elif count < low_q:
+        return 'unpopular'
+    else:
+        return 'average'
+
+
 df['genres_list'] = df['genres'].apply(map_genre_ids, args=(True, ))
 df['genres'] = df['genres'].apply(map_genre_ids)
 df['release_date'] = df['release_date'].str.extract(r'(\d{4})')
@@ -70,8 +111,11 @@ df['actors_list'] = df['actors']
 df['actors'] = df['actors'].apply(format_names)
 df['producers_list'] = df['producer']
 df['producer'] = df['producer'].apply(format_names)
+item_rating_counts, low_q, high_q = analyze_item_popularity("./ml-100k.inter")
+df['item_rating_count'] = df['item_id'].map(item_rating_counts)
+df['popularity'] = df['item_rating_count'].apply(get_popularity_label, args=(low_q, high_q))
 
-ordered_columns = ['item_id', 'title', 'genres', 'director', 'producer', 'actors', 'release_date', 'duration', 'age_rating', 'imdb_rating', 'imdb_num_reviews', 'description', 'genres_list', 'directors_list', 'producers_list', 'actors_list']
+ordered_columns = ['item_id', 'title', 'genres', 'director', 'producer', 'actors', 'release_date', 'duration', 'age_rating', 'imdb_rating', 'imdb_num_reviews', 'item_rating_count', 'popularity', 'description', 'genres_list', 'directors_list', 'producers_list', 'actors_list']
 
 # fill remaining NaN values with unknown
 df.fillna("unknown", inplace=True)
@@ -80,6 +124,3 @@ df.fillna("unknown", inplace=True)
 df.to_csv('final_ml-100k.csv', index=False, sep='\t', columns=ordered_columns)
 
 print("Final CSV saved as 'final_movies.csv'")
-
-
-# todo if it does not work with numerical features, we can implement filters
