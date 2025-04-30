@@ -7,6 +7,7 @@ import pandas as pd
 from dotenv import load_dotenv
 import ast
 from rapidfuzz import process
+from src.my_app.assistant import AssistantSetupService
 
 
 def create_entities_environment(api_key, user_id, assistant_tools, vector_store_name):
@@ -24,7 +25,9 @@ def create_entities_environment(api_key, user_id, assistant_tools, vector_store_
                     api_key=api_key)
     user = client.users.retrieve_user(user_id=user_id)
     thread = client.threads.create_thread(participant_ids=[user.id])
-    assistant = client.assistants.retrieve_assistant("default")
+    service = AssistantSetupService(client)
+    assistant = service.orchestrate_default_assistant()
+    client.assistants.associate_assistant_with_user(user_id=user.id, assistant_id=assistant.id)
     for tool in assistant_tools:
         associate_tool_to_assistant(client, assistant.id, tool=tool)
 
@@ -321,6 +324,11 @@ def define_sql_query(table, conditions):
         items = conditions['items']
         requested_field = ", ".join(specification)
         query_parts.append(f"item_id IN ({', '.join([str(i) for i in items])})")
+    elif table == "users" and "specification" in conditions and "user" in conditions:
+        specification = conditions['specification']
+        user = [conditions['user']] if not isinstance(conditions['user'], list) else conditions['user']
+        requested_field = ", ".join(specification)
+        query_parts.append(f"user_id IN ({', '.join([str(i) for i in user])})")
     else:
         return None, corrections, failed_corrections
     if query_parts:

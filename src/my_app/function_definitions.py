@@ -1054,3 +1054,64 @@ INTERACTION = {
         }
     }
 }
+
+USER_METADATA = {
+    "function": {
+        "name": "get_user_metadata",
+        "description": (
+            "Returns metadata for the given user ID. Specific metadata might be requested. "
+            "If no specification is given"
+            "all the metadata available for the user is returned."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "type": "int",
+                    "description": "User ID for which the metadata has to be retrieved."
+                },
+                "specification": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of user metadata features to be included in the response. Available features"
+                                   "are: [\"age_category\", \"gender\".",
+                    "examples": {
+                        "Specification for when age is the requested feature": {
+                            "specification": ["age_category"]
+                        },
+                        "Specification for when age and gender are the requested features": {
+                            "specification": ["age_category", "gender"]
+                        },
+                        "Specification for when full metadata is requested": {
+                            "specification": ["age_category", "gender"]
+                        }
+                    }
+                }
+            }
+        },
+        "required": ["user", "specification"],
+        "examples": {
+            "Provide all the information you know about user 3": {
+                "name": "get_user_metadata",
+                "arguments": {
+                    "user": 3,
+                    "specification": ["age_category", "gender"]
+                }
+            },
+            "What is the age category of user 65?": {
+                "name": "get_user_metadata",
+                "arguments": {
+                    "items": 65,
+                    "specification": ["age_category"]
+                }
+            },
+            "What is the gender of user 90?": {
+                "name": "get_user_metadata",
+                "arguments": {
+                    "items": 90,
+                    "specification": ["gender"]
+                }
+            },
+        }
+    }
+}

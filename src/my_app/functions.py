@@ -390,3 +390,52 @@ def get_interacted_items(params, db_name, return_list=False):
             "message": f"Something went wrong in the function calling. The generated JSON "
                        f"is invalid.",
         })
+
+
+def get_user_metadata(params, db_name, return_dict=False):
+    """
+    This function is used by the assistant to retrieve the metadata of a user based on user
+    requests.
+
+    :param params: dictionary containing all the arguments to process the metadata request
+    :param db_name: name of database on which the SQL query is to be executed
+    :param return_dict: whether to return the output as a dictionary or stream
+    :return: stream or dictionary with the requested information
+    """
+    if 'user' in params and 'specification' in params:
+        user = params.get('user')
+        specification = params.get('specification')
+        sql_query, _, _ = define_sql_query("users", {"user": user, "specification": specification})
+        result = execute_sql_query(db_name, sql_query)
+
+        if result and not return_dict:
+            return_str = ""
+            for j in range(len(result)):
+                return_str += f"User {result[j][0]}:"
+                for i, spec in enumerate(specification):
+                    return_str += f"\n\n{spec}: {result[j][i] if result[j][i] is not None else 'unknown'}\n"
+            return json.dumps({
+                "status": "success",
+                "message": f"This is the requested metadata for user {user}:\n{return_str}",
+            })
+        elif result and return_dict:
+            r_dict = {}
+            for j in range(len(result)):
+                r_dict[result[j][0]] = {}
+                for i, spec in enumerate(specification):
+                    r_dict[result[j][0]][spec] = result[j][i] if result[j][i] is not None else "unknown"
+            return r_dict
+        else:
+            if not return_dict:
+                return json.dumps({
+                    "status": "failure",
+                    "message": f"No information found for the given user.",
+                })
+            else:
+                return None
+    else:
+        return json.dumps({
+            "status": "failure",
+            "message": f"Something went wrong in the function calling. The generated JSON "
+                       f"is invalid.",
+        })
