@@ -13,7 +13,7 @@ from src.my_app.functions import get_item_metadata, get_interacted_items, get_to
 # todo when there are a lot of interactions, let's keep the most recent ones
 
 entities_setup = {
-    "api_key": os.getenv("ENTITIES_API_KEY"),
+    "api_key": os.getenv("ADMIN_API_KEY"),
     "user_id": os.getenv("ENTITIES_USER_ID"),
     "assistant_tools": [RECOMMENDATION, METADATA, INTERACTION],
 }

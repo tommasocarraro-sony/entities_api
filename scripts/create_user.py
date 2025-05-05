@@ -4,7 +4,7 @@ import os
 import sys
 import time
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key, find_dotenv
 
 # Assuming projectdavid.Entity correctly initializes ApiKeysClient under .keys
 # Make sure this import works based on your project structure.
@@ -257,9 +257,27 @@ def main():
 
     # --- Generate Key (if user created) ---
     if new_user:
-        generate_user_key(admin_client, new_user, key_name=args.key_name)
+        api_key = generate_user_key(admin_client, new_user, key_name=args.key_name)
     else:
         print("\nSkipping API key generation due to user creation failure.")
+        exit()
+
+    dotenv_path = find_dotenv(
+        filename='.env', raise_error_if_not_found=False
+    )
+
+    print(f"Attempting to update .env file at: {dotenv_path}")
+    try:
+        os.makedirs(
+            os.path.dirname(dotenv_path), exist_ok=True
+        )
+        set_key(dotenv_path, "ENTITIES_USER_ID", str(new_user.id), quote_mode="always")
+        set_key(dotenv_path, "ENTITIES_USER_API_KEY", api_key, quote_mode="always")
+
+        print(f"Successfully updated .env file: {dotenv_path}")
+
+    except Exception as dotenv_err:
+        print(f"\nWarning: Failed to update .env file at {dotenv_path}: {dotenv_err}")
 
     print("\nScript finished.")
 

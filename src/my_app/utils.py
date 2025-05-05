@@ -4,7 +4,7 @@ from projectdavid_common.schemas.tools import ToolFunction
 import os
 import re
 import pandas as pd
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
 import ast
 from rapidfuzz import process
 from src.my_app.assistant import AssistantSetupService
@@ -19,22 +19,18 @@ def create_entities_environment(api_key, user_id, assistant_tools, vector_store_
     :param assistant_tools: tools (for function calling) that have to be associated with the
     assistant
     :param vector_store_name: name of the vector store that has to be created
-    :return: client, user, thread, and assistant of Entities API environment
     """
     client = Entity(base_url="http://localhost:9000",
                     api_key=api_key)
     user = client.users.retrieve_user(user_id=user_id)
-    thread = client.threads.create_thread(participant_ids=[user.id])
     service = AssistantSetupService(client)
     assistant = service.orchestrate_default_assistant()
-    client.assistants.associate_assistant_with_user(user_id=user.id, assistant_id=assistant.id)
+
     for tool in assistant_tools:
         associate_tool_to_assistant(client, assistant.id, tool=tool)
 
     vector_store_setup_movielens(client=client, user_id=user.id,
                                  vector_store_name=vector_store_name)
-
-    return client, user, thread, assistant
 
 
 def create_app_environment(database_name, entities_setup):
@@ -55,6 +51,17 @@ def create_app_environment(database_name, entities_setup):
         assistant_tools=entities_setup["assistant_tools"],
         vector_store_name=entities_setup["vector_store_name"]
     )
+
+
+def create_lists_for_fuzzy_matching():
+    # create the lists of actors, directors, producers, and genres for fuzzy matching
+    global actors_list, producers_list, directors_list, genres_list
+    actors_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "actors_list")
+    producers_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv",
+                                          "producers_list")
+    directors_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv",
+                                          "directors_list")
+    genres_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "genres_list")
 
 
 def create_ml100k_db(db_name):
@@ -175,13 +182,6 @@ def create_ml100k_db(db_name):
 
     conn.commit()
     conn.close()
-
-    # create the lists of actors, directors, producers, and genres for fuzzy matching
-    global actors_list, producers_list, directors_list, genres_list
-    actors_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "actors_list")
-    producers_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "producers_list")
-    directors_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "directors_list")
-    genres_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "genres_list")
 
 
 def convert_age_to_string(age):
@@ -527,6 +527,20 @@ def vector_store_setup_movielens(client, user_id, vector_store_name):
     """
     load_dotenv()
 
+    # check if the vector store already exists
+    if os.getenv('ENTITIES_VECTOR_STORE_ID') is not None:
+        try:
+            client.vectors.retrieve_vector_store(os.getenv('ENTITIES_VECTOR_STORE_ID'))
+            print("Store already exists!")
+        except Exception as e:
+            print(f"Failed to retrieve vector store: {e}")
+            print(f"Creating vector store: {vector_store_name}")
+            create_vector_store(client, user_id, vector_store_name)
+    else:
+        create_vector_store(client, user_id, vector_store_name)
+
+
+def create_vector_store(client, user_id, vector_store_name):
     movies = pd.read_csv(
         "./data/recsys/ml-100k/final_ml-100k.csv",
         sep="\t",
@@ -544,64 +558,60 @@ def vector_store_setup_movielens(client, user_id, vector_store_name):
 
         return ". \n".join(fields) + "."
 
-    # check if a vector store with the same name already exists
-    if os.getenv('ENTITIES_VECTOR_STORE_ID') is not None:
-        print("Store already exists!")
-    else:
-        vs = client.vectors.create_vector_store(
-            name=vector_store_name,
-            user_id=user_id,
-        )
+    vs = client.vectors.create_vector_store(
+        name=vector_store_name,
+        user_id=user_id,
+    )
 
-        collection = vs.collection_name
-        print(f"🆕 Created vector store {vs.id} → collection '{collection}'")
+    collection = vs.collection_name
+    print(f"🆕 Created vector store {vs.id} → collection '{collection}'")
 
-        embedder = client.vectors.file_processor.embedding_model
+    embedder = client.vectors.file_processor.embedding_model
 
-        for _, mv in movies.iterrows():
-            if mv["title"] != "unknown":
-                text = build_embedding_text(mv)
-                vec = embedder.encode(
-                    [text],
-                    convert_to_numpy=True,
-                    normalize_embeddings=True,
-                    truncate="model_max_length",
-                    show_progress_bar=False,
-                )[0].tolist()
+    for _, mv in movies.iterrows():
+        if mv["title"] != "unknown":
+            text = build_embedding_text(mv)
+            vec = embedder.encode(
+                [text],
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+                truncate="model_max_length",
+                show_progress_bar=False,
+            )[0].tolist()
 
-                meta = {
-                    "item_id": int(mv["item_id"]),
-                    "title": mv["title"] if mv["title"] != "unknown" else None,
-                    "genres": ast.literal_eval(mv["genres_list"]) if mv["genres_list"] != "unknown" else None,
-                    "director": ast.literal_eval(mv["directors_list"]) if mv["directors_list"] != "unknown" else None,
-                    "producer": ast.literal_eval(mv["producers_list"]) if mv["producers_list"] != "unknown" else None,
-                    "actors": ast.literal_eval(mv["actors_list"]) if mv["actors_list"] != "unknown" else None,
-                    "release_date": int(mv["release_date"]) if mv["release_date"] != "unknown" else None,
-                    "duration": convert_duration(mv["duration"]) if mv["duration"] != "unknown" else None,
-                    "age_rating": mv["age_rating"] if mv["age_rating"] != "unknown" else None,
-                    "imdb_rating": float(mv["imdb_rating"]) if mv["imdb_rating"] != "unknown" else None,
-                    "imdb_num_reviews": convert_num_reviews(mv["imdb_num_reviews"]) if mv["imdb_num_reviews"] != "unknown" else None,
-                    "item_rating_count": int(mv["item_rating_count"]),
-                    "popularity": mv["popularity"],
-                    "description": mv["description"] if mv["description"] != "unknown" else None,
-                    "popular_kid": mv["popular_kid"],
-                    "popular_teenager": mv["popular_teenager"],
-                    "popular_young_adult": mv["popular_young_adult"],
-                    "popular_adult": mv["popular_adult"],
-                    "popular_senior": mv["popular_senior"]
-                }
+            meta = {
+                "item_id": int(mv["item_id"]),
+                "title": mv["title"] if mv["title"] != "unknown" else None,
+                "genres": ast.literal_eval(mv["genres_list"]) if mv["genres_list"] != "unknown" else None,
+                "director": ast.literal_eval(mv["directors_list"]) if mv["directors_list"] != "unknown" else None,
+                "producer": ast.literal_eval(mv["producers_list"]) if mv["producers_list"] != "unknown" else None,
+                "actors": ast.literal_eval(mv["actors_list"]) if mv["actors_list"] != "unknown" else None,
+                "release_date": int(mv["release_date"]) if mv["release_date"] != "unknown" else None,
+                "duration": convert_duration(mv["duration"]) if mv["duration"] != "unknown" else None,
+                "age_rating": mv["age_rating"] if mv["age_rating"] != "unknown" else None,
+                "imdb_rating": float(mv["imdb_rating"]) if mv["imdb_rating"] != "unknown" else None,
+                "imdb_num_reviews": convert_num_reviews(mv["imdb_num_reviews"]) if mv["imdb_num_reviews"] != "unknown" else None,
+                "item_rating_count": int(mv["item_rating_count"]),
+                "popularity": mv["popularity"],
+                "description": mv["description"] if mv["description"] != "unknown" else None,
+                "popular_kid": mv["popular_kid"],
+                "popular_teenager": mv["popular_teenager"],
+                "popular_young_adult": mv["popular_young_adult"],
+                "popular_adult": mv["popular_adult"],
+                "popular_senior": mv["popular_senior"]
+            }
 
-                client.vectors.vector_manager.add_to_store(
-                    store_name=collection,
-                    texts=[text],
-                    vectors=[vec],
-                    metadata=[meta],
-                )
+            client.vectors.vector_manager.add_to_store(
+                store_name=collection,
+                texts=[text],
+                vectors=[vec],
+                metadata=[meta],
+            )
 
-        print(f"✅ Ingested {len(movies)} fully enriched movies.")
-        print("Adding vector store ID to .env")
+    print(f"✅ Ingested {len(movies)} fully enriched movies.")
+    print("Adding vector store ID to .env")
 
-        set_env_variable('./.env', 'ENTITIES_VECTOR_STORE_ID', vs.id)
+    set_key("./.env", "ENTITIES_VECTOR_STORE_ID", str(vs.id), quote_mode="always")
 
 
 def convert_duration(duration_str):
@@ -625,34 +635,3 @@ def convert_num_reviews(view_str):
         return int(num * multipliers[view_str[-1]])
     else:
         return int(view_str)
-
-
-def set_env_variable(file_path, key, value):
-    """
-    Adds an environment variable to the .env file.
-    :param file_path: path to .env file
-    :param key: name of the variable
-    :param value: value of the variable
-    """
-    lines = []
-    found = False
-
-    # Read the .env file if it exists
-    try:
-        with open(file_path, 'r') as file:
-            for line in file:
-                if line.startswith(f"{key}="):
-                    lines.append(f"{key}={value}\n")
-                    found = True
-                else:
-                    lines.append(line)
-    except FileNotFoundError:
-        pass  # The file doesn't exist yet
-
-    # If the key was not found, add it
-    if not found:
-        lines.append(f"\n{key}='{value}'")
-
-    # Write back the file
-    with open(file_path, 'w') as file:
-        file.writelines(lines)

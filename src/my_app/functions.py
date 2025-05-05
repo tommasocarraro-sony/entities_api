@@ -139,7 +139,7 @@ def vector_store_search(query, filters=None, topk=5):
     """
     client = Entity(
         base_url=os.getenv("BASE_URL", "http://localhost:9000"),
-        api_key=os.getenv("ENTITIES_API_KEY"),
+        api_key=os.getenv("ADMIN_API_KEY"),
     )
     store = os.getenv("ENTITIES_VECTOR_STORE_ID")
 

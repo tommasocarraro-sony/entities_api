@@ -1,10 +1,9 @@
-import sys
 from projectdavid import Entity
 from projectdavid_common import ValidationInterface
 
 from src.api.entities_api.constants.assistant import DEFAULT_MODEL
 from src.api.entities_api.services.logging_service import LoggingUtility
-from src.api.entities_api.system_message.assembly import assemble_instructions
+from src.api.entities_api.system_message.assembly import assemble_instructions, ASSISTANT_INSTRUCTIONS_STRUCTURED
 
 
 validate = ValidationInterface()
@@ -55,6 +54,9 @@ class AssistantSetupService:
                 f"Assistant with logical ID '{target_assistant_id}' not found. Creating a new one."
             )
             try:
+                self.logging_utility.info(
+                    f"Creating assistant '{target_assistant_id}' with instructions: {instructions}."
+                )
                 assistant = self.client.assistants.create_assistant(
                     name=assistant_name,
                     description=assistant_description,
@@ -83,15 +85,7 @@ class AssistantSetupService:
         Main orchestration flow for setting up the 'default' assistant.
         """
         try:
-            final_instructions = []
-            keys_to_process = [
-                key for key in INSTRUCTIONS.keys()
-            ]
-
-            for key in keys_to_process:
-                final_instructions.append(INSTRUCTIONS[key])
-
-            instructions = "\n\n".join(final_instructions)
+            instructions = assemble_instructions(instruction_set=INSTRUCTIONS)
 
             assistant = self.setup_assistant(
                 assistant_name="Q",
@@ -103,6 +97,7 @@ class AssistantSetupService:
             self.logging_utility.info(
                 f"Orchestration completed. Assistant ready (ID: {assistant.id})."
             )
+
             return assistant
 
         except Exception as e:

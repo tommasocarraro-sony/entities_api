@@ -4,25 +4,20 @@ import os
 load_dotenv()
 os.environ.pop("DATABASE_URL", None)
 import chainlit as cl
-from src.my_app.function_definitions import RECOMMENDATION, METADATA, INTERACTION, RECOMMENDATION_VECTOR, RECOMMENDATION_SIMILAR_ITEM, USER_METADATA
-from src.my_app.utils import create_app_environment
+from projectdavid import Entity
+from src.my_app.utils import create_lists_for_fuzzy_matching
 from src.my_app.functions import get_item_metadata, get_interacted_items, get_top_k_recommendations, get_recommendations_by_similar_item, get_recommendations_by_description, get_user_metadata
-
-
-entities_setup = {
-    "api_key": os.getenv("ENTITIES_API_KEY"),
-    "user_id": os.getenv("ENTITIES_USER_ID"),
-    "assistant_tools": [RECOMMENDATION, METADATA, INTERACTION, RECOMMENDATION_VECTOR,
-                        RECOMMENDATION_SIMILAR_ITEM, USER_METADATA],
-    "vector_store_name": "ml-100k_metadata_vector_store"
-}
 
 db_name = "movielens-100k"
 
-client, user, thread, assistant = create_app_environment(
-    database_name=db_name,
-    entities_setup=entities_setup
-)
+client = Entity(base_url="http://localhost:9000", api_key=os.getenv("ADMIN_API_KEY"))
+user = client.users.retrieve_user(user_id=os.getenv("ENTITIES_USER_ID"))
+thread = client.threads.create_thread(participant_ids=[user.id])
+assistant = client.assistants.retrieve_assistant(assistant_id="default")
+
+# this is necessary for the working of fuzzy matching to correct typos (for actors, directors,
+# producers. and genres) in the user prompts
+create_lists_for_fuzzy_matching()
 
 
 def function_call_handler(tool_name, arguments):
@@ -71,7 +66,7 @@ async def handle_message(message):
     for chunk in sync_stream.stream_chunks(
         provider="Hyperbolic",
         model="hyperbolic/deepseek-ai/DeepSeek-V3",
-        timeout_per_chunk=20.0,
+        timeout_per_chunk=30.0,
         api_key=os.getenv("HYPERBOLIC_API_KEY"),
     ):
         token = chunk.get("content", "")
@@ -85,7 +80,7 @@ async def handle_message(message):
             tool_executor=function_call_handler,
             actions_client=client.actions,
             messages_client=client.messages,
-            timeout=45.0,
+            timeout=60.0,
             interval=1.5,
         )
 
@@ -102,7 +97,7 @@ async def handle_message(message):
             for final_chunk in sync_stream.stream_chunks(
                 provider="Hyperbolic",
                 model="hyperbolic/deepseek-ai/DeepSeek-V3",
-                timeout_per_chunk=20.0,
+                timeout_per_chunk=30.0,
                 api_key=os.getenv("HYPERBOLIC_API_KEY"),
             ):
                 token = final_chunk.get("content", "")
@@ -112,6 +107,5 @@ async def handle_message(message):
 
     await msg.update()
 
-
-# todo get user age category to then recommend
-# todo remove unassary tools from default assistant
+# todo fixing the stop of the service with a retry mechanism
+# todo fixing the waiting time for the tool to execute
