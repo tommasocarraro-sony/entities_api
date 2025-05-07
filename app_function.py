@@ -63,6 +63,7 @@ async def handle_message(message):
         api_key=os.getenv("HYPERBOLIC_API_KEY"),
     )
 
+    # this is the potential stream of the JSON file
     for chunk in sync_stream.stream_chunks(
         provider="Hyperbolic",
         model="hyperbolic/deepseek-ai/DeepSeek-V3",
@@ -72,40 +73,44 @@ async def handle_message(message):
         token = chunk.get("content", "")
         await msg.stream_token(token)
 
-    try:
-        action_was_handled = client.runs.poll_and_execute_action(
-            run_id=run.id,
-            thread_id=thread.id,
-            assistant_id=assistant.id,
-            tool_executor=function_call_handler,
-            actions_client=client.actions,
-            messages_client=client.messages,
-            timeout=60.0,
-            interval=1.5,
-        )
-
-        if action_was_handled:
-            print("\n[Tool executed. Generating final response...]\n")
-            sync_stream.setup(
-                user_id=user.id,
+    async def stream_after_action(run, thread, assistant, client):
+        try:
+            action_was_handled = client.runs.poll_and_execute_action(
+                run_id=run.id,
                 thread_id=thread.id,
                 assistant_id=assistant.id,
-                message_id="regenerated",
-                run_id=run.id,
-                api_key=os.getenv("HYPERBOLIC_API_KEY"),
+                tool_executor=function_call_handler,
+                actions_client=client.actions,
+                messages_client=client.messages,
+                timeout=60.0,
+                interval=1.5,
             )
-            for final_chunk in sync_stream.stream_chunks(
-                provider="Hyperbolic",
-                model="hyperbolic/deepseek-ai/DeepSeek-V3",
-                timeout_per_chunk=30.0,
-                api_key=os.getenv("HYPERBOLIC_API_KEY"),
-            ):
-                token = final_chunk.get("content", "")
-                await msg.stream_token(token)
-    except Exception as e:
-        print(f"\n[Error during tool execution or final stream]: {str(e)}")
 
-    await msg.update()
+            if action_was_handled:
+                print("\n[Tool executed. Generating final response...]\n")
+                sync_stream.setup(
+                    user_id=user.id,
+                    thread_id=thread.id,
+                    assistant_id=assistant.id,
+                    message_id="regenerated",
+                    run_id=run.id,
+                    api_key=os.getenv("HYPERBOLIC_API_KEY"),
+                )
+                for final_chunk in sync_stream.stream_chunks(
+                    provider="Hyperbolic",
+                    model="hyperbolic/deepseek-ai/DeepSeek-V3",
+                    timeout_per_chunk=30.0,
+                    api_key=os.getenv("HYPERBOLIC_API_KEY"),
+                ):
+                    token = final_chunk.get("content", "")
+                    await msg.stream_token(token)
+        except Exception as e:
+            print(f"\n[Error during tool execution or final stream]: {str(e)}")
+
+        await msg.update()
+
+    await stream_after_action(run, thread, assistant, client)
+    await stream_after_action(run, thread, assistant, client)
 
 # todo fixing the stop of the service with a retry mechanism -> I need to get the exception in some way to implement a retry mechanism
 # todo fixing the waiting time for the tool to execute
