@@ -560,7 +560,7 @@ def create_vector_store(client, user_id, vector_store_name):
 
     vs = client.vectors.create_vector_store(
         name=vector_store_name,
-        user_id=user_id,
+        user_id=user_id
     )
 
     collection = vs.collection_name

@@ -107,5 +107,5 @@ async def handle_message(message):
 
     await msg.update()
 
-# todo fixing the stop of the service with a retry mechanism
+# todo fixing the stop of the service with a retry mechanism -> I need to get the exception in some way to implement a retry mechanism
 # todo fixing the waiting time for the tool to execute
