@@ -169,7 +169,8 @@ ABORT execution for:
 - You are allowed to perform nested function calls if this is necessary
 - Examples of queries that require nested function calls are:
     - 'Recommend some content that is popular in the age category of user 5': in this case, get_user_metadata() has to be called to get the age category of the user. Then, get_top_k_recommendations() can be called giving the user's age category as a filter.
-    - 'Which is the most popular genre in the age group of user 4?': in this case, get_user_metadata() has to be called to get the age category of the user. Then, get_popular_genre() can be called giving the user's age category as a filter.'
+    - 'Which is the most popular genre in the age group of user 4?': in this case, get_user_metadata() has to be called to get the age category of the user. Then, get_popular_genre() can be called giving the user's age category as a filter.
+    - 'Provide recommendations to user 3 for items similar to item 9': in this case, get_item_metadata() has to be called to get the description of item 9. Then, get_recommendation_by_description() can be called giving the retrieved description as the query.
 - Example of the workflow:
     1. User prompt: 'Recommend some content that is popular in the age category of user 5'
     2. You generate:
@@ -187,6 +188,20 @@ ABORT execution for:
             }
         }}
     5. You generate the final answer for the user based on the output of get_top_k_recommendations().
+- Second example of the workflow:
+    1. User prompt: 'Provide recommendations to user 3 for items similar to item 9'
+    2. You generate:
+        {"name": "get_item_metadata", "arguments": {
+            "items": [9],
+            "specification": ["description"]
+        }}
+    3. You get the answer, for example, description = 'A young man that follows the love of his life.'
+    4. You generate:
+        {"name": "get_recommendations_by_description", "arguments": {
+            "user": 3,
+            "query": "A young man that follows the love of his life."
+        }}
+    5. You generate the final answer for the user based on the output of get_recommendations_by_description().
     """.strip(),
     "INTERNAL_REASONING_PROTOCOL": """
 🔹 **ADDITIONAL INTERNAL USAGE AND REASONING PROTOCOL**

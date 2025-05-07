@@ -29,9 +29,9 @@ def function_call_handler(tool_name, arguments):
     if tool_name == "get_interacted_items":
         return get_interacted_items(arguments, db_name)
     if tool_name == "get_recommendations_by_description":
-        return get_recommendations_by_description(arguments, db_name)
-    if tool_name == "get_recommendations_by_similar_item":
-        return get_recommendations_by_similar_item(arguments, db_name)
+        return get_recommendations_by_description(arguments)
+    # if tool_name == "get_recommendations_by_similar_item":
+    #     return get_recommendations_by_similar_item(arguments, db_name)
     if tool_name == "get_user_metadata":
         return get_user_metadata(arguments, db_name)
 

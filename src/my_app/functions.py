@@ -128,7 +128,7 @@ def recommend_given_items(user, item_ids, k=5):
     return [item_ids[i] for i in sorted_indices[:k].cpu().numpy()]
 
 
-def vector_store_search(query, filters=None, topk=5):
+def vector_store_search(query, filters=None, topk=11):
     """
     It performs a search on the vector store and returns the IDs of the retrieved items.
 
@@ -164,7 +164,7 @@ def vector_store_search(query, filters=None, topk=5):
     ]
 
     item_metadata = {
-        str(h['metadata']['item_id']): {"item_id": h['metadata']['item_id'],
+        str(h['metadata']['item_id']): {"item_id": str(h['metadata']['item_id']),
                                         "title": h['metadata']['title'],
                                         "genres": h['metadata']['genres'],
                                         "director": h['metadata']['director'],
@@ -175,14 +175,13 @@ def vector_store_search(query, filters=None, topk=5):
     return item_ids, item_metadata
 
 
-def get_recommendations_by_description(params, db_name):
+def get_recommendations_by_description(params):
     """
     This function is used by the assistant to perform recommendations of items that match a given
     textual description.
 
     :param params: dictionary containing all the arguments to process the description-based
     recommendations
-    :param db_name: name of the database where SQL queries of get_item_metadata have to be performed
 
     :return: a prompt for the LLM that the LLM will use as additional context to prepare the final
     answer
@@ -217,9 +216,16 @@ def get_recommendations_by_description(params, db_name):
             # if no filters are given, we can directly perform the vector store search with the
             # LLM generated query
             item_ids, item_metadata = vector_store_search(query)
+            # remove item from list if its description is item_metadata is exactly the same as the
+            # query
+            # this happens when looking for an item description
+            # in such case, the first hit will be the item itself. We need to remove this item from
+            # the list
+            item_metadata = {k: v for k, v in item_metadata.items() if v['description'] != query}
+            # update the list of item ids too
+            item_ids = [i for i in item_ids if i in item_metadata]
             recommended_items = recommend_given_items(uid_series, item_ids)
 
-        # todo we can check the score to understand if the item description have been given
         print(recommended_items)
         # filter item_metadata based on recommended_items
         item_metadata = {k: v for k, v in item_metadata.items() if k in recommended_items}
