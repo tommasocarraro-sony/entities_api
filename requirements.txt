@@ -74,7 +74,8 @@ pysmb
 passlib[bcrypt]
 
 # Internal packages
-projectdavid==1.17.0
+# projectdavid==1.17.0
+git+https://github.com/tommasocarraro-sony/entitites_sdk.git@my-v1.17.0-mod#egg=projectdavid
 projectdavid-common==0.12.0
 
 # From Test PyPI (only these should resolve there)

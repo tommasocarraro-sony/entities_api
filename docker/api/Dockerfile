@@ -7,6 +7,9 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /install
 
+RUN apt-get update && apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy the requirements file
 COPY requirements.txt .
 

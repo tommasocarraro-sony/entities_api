@@ -38,6 +38,7 @@ def get_top_k_recommendations(params, db_name):
     :return: a prompt for the LLM that the LLM will use as additional context to prepare the final
     answer
     """
+    print("\nget_top_k_recommendations has been triggered!!!\n")
     if 'user' in params and 'k' in params:
         user = params.get('user')
         k = params.get('k')
@@ -186,6 +187,7 @@ def get_recommendations_by_description(params):
     :return: a prompt for the LLM that the LLM will use as additional context to prepare the final
     answer
     """
+    print("\nget_recommendations_by_description has been triggered!!!\n")
     if 'user' in params and 'query' in params:
         user = params.get('user')
         query = params.get('query')
@@ -309,6 +311,7 @@ def get_item_metadata(params, db_name, return_dict=False):
     :param return_dict: whether to return the output as a dictionary or stream
     :return: stream or dictionary with the requested information
     """
+    print("\nget_item_metadata has been triggered!!!\n")
     if 'items' in params and 'specification' in params:
         items = params.get('items')
         specification = params.get('specification')
@@ -358,6 +361,7 @@ def get_interacted_items(params, db_name, return_list=False):
     :param return_list: whether to return the output as a list or stream
     :return: stream or list with the requested information
     """
+    print("\nget_interacted_items has been triggered!!!\n")
     if 'user' in params:
         user = params.get('user')
         sql_query, _, _ = define_sql_query("interactions", params)
@@ -411,6 +415,7 @@ def get_user_metadata(params, db_name, return_dict=False):
     :param return_dict: whether to return the output as a dictionary or stream
     :return: stream or dictionary with the requested information
     """
+    print("\nget_user_metadata has been triggered!!!\n")
     if 'user' in params and 'specification' in params:
         user = params.get('user')
         specification = params.get('specification')
@@ -425,7 +430,7 @@ def get_user_metadata(params, db_name, return_dict=False):
                     return_str += f"\n\n{spec}: {result[j][i] if result[j][i] is not None else 'unknown'}\n"
             return json.dumps({
                 "status": "success",
-                "message": f"This is the requested metadata for user {user}:\n{return_str}",
+                "message": f"This is the requested metadata for user {user}:\n{return_str}.",
             })
         elif result and return_dict:
             r_dict = {}

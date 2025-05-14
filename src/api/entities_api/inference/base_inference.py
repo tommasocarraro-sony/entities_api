@@ -2000,8 +2000,10 @@ class BaseInference(ABC):
         if accumulated_content:
             logging_utility.debug("Raw accumulated content: %s", accumulated_content)
 
+            # check if there is a JSON in the message, I mean, if the message is just JSON (true or false)
             json_accumulated_content = self.ensure_valid_json(text=accumulated_content)
 
+            # set the function call based on the JSON, if the message is just JSON
             if json_accumulated_content:
                 function_call = self.is_valid_function_call_response(
                     json_data=json_accumulated_content
@@ -2019,23 +2021,27 @@ class BaseInference(ABC):
                     logging_utility.debug(
                         "Function call State set with payload: %s", parsed_function_call
                     )
-
-        if not parsed_function_call:
-            tool_invocation_in_multi_line_text = (
-                self.extract_function_calls_within_body_of_text(text=assistant_reply)
-            )
-            if (
-                tool_invocation_in_multi_line_text
-                and not self.get_tool_response_state()
-            ):
+            else:
+                # if the output does not contain a direct JSON, we look if the JSON is inside the message body
                 logging_utility.debug(
-                    "Embedded Function Call detected: %s",
-                    tool_invocation_in_multi_line_text,
+                    "Looking for JSON inside assistant response..."
                 )
-                self.set_tool_response_state(True)
-                embedded_call = tool_invocation_in_multi_line_text[0]
-                self.set_function_call_state(embedded_call)
-                parsed_function_call = embedded_call
+                tool_invocation_in_multi_line_text = (
+                    self.extract_function_calls_within_body_of_text(text=assistant_reply)
+                )
+                if tool_invocation_in_multi_line_text:
+                    logging_utility.debug(
+                        "Embedded Function Call detected: %s",
+                        tool_invocation_in_multi_line_text,
+                    )
+                    self.set_tool_response_state(True)
+                    embedded_call = tool_invocation_in_multi_line_text[0]
+                    self.set_function_call_state(embedded_call)
+                    parsed_function_call = embedded_call
+                else:
+                    logging_utility.debug(
+                        "Did not find any JSON..."
+                    )
 
         return parsed_function_call
 
