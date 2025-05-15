@@ -200,7 +200,7 @@ async def on_chat_start():
                       "\n   - IMDb rating; "
                       "\n   - Popularity."
                       "\n\n8. **Get user metadata**: you can ask for specific metadata regarding a user ID. Specifically, you can ask for the gender and age category."
-                      "\n\n9. **Get user historical interactions**: you can ask for the historical interactions of a user ID. I will query a database to retrieve the item IDs of the previously interacted items. Then, I will query another database to get some metadata of these items to provide you a comprehensive description of them. Note that I will display to you the 10 most recent items. Extra: after I finished disp0laying the interacted items, you could ask me to analyze the user interests based on the metadata of the interacted items."
+                      "\n\n9. **Get user historical interactions**: you can ask for the historical interactions of a user ID. I will query a database to retrieve the item IDs of the previously interacted items. Then, I will query another database to get some metadata of these items to provide you a comprehensive description of them. Note that I will display to you the 10 most recent items. **Extra**: after I finished displaying the interacted items, you could ask me to analyze the user interests based on the metadata of the interacted items."
                       "\n\n\nAs carefully explained in the previous items, to prepare your answers, I will interact with external tools using sophisticated Tool Calling and Retrieval Agumented Genration techniques. I will tell you about each step of the process to build your answer to provide maximum transparency. I will use a Chain of Thoughts prompting technique to provide the step-by-step process behing each answer preparation."
                       "\n\n Feel free to start with your first query!")
     for token in system_message:
@@ -238,6 +238,7 @@ async def on_chat_start():
 # todo put some enters between the various CoT so that everything is clearer
 # todo still do not understand what is not working, probably I need to create another run instead of relying on the same one
 # todo explain that these are the tools that can be internally used by the LLM, maybe we should not mention them
+# todo the parser does not work when there are filters
 
 
 

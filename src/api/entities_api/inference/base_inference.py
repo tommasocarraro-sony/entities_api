@@ -704,6 +704,22 @@ class BaseInference(ABC):
 
         print(f"Text after normalization: {text}")
 
+        def extract_json_block(text):
+            start = text.find('{')
+            if start == -1:
+                return None
+
+            brace_count = 0
+            for i in range(start, len(text)):
+                if text[i] == '{':
+                    brace_count += 1
+                elif text[i] == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        json_str = text[start:i + 1]
+                        return json_str
+            return None
+
         # Simplified pattern without recursion
         pattern = r"""
             \{         # Opening curly brace
@@ -715,24 +731,26 @@ class BaseInference(ABC):
             \}         # Closing curly brace
         """
 
-        tool_matches = []
-        for match in re.finditer(pattern, text, re.DOTALL | re.VERBOSE):
-            try:
-                # Reconstruct with proper JSON formatting
-                raw_json = match.group()
-                parsed = json.loads(raw_json)
+        # tool_matches = []
+        # for match in re.finditer(pattern, text, re.DOTALL | re.VERBOSE):
+        #     print(f"This has been a match: {match.group()}")
+        try:
+            # Reconstruct with proper JSON formatting
+            raw_json = extract_json_block(text)
+            print(f"This is the extracted JSON: {raw_json}")
+            parsed = json.loads(raw_json)
 
-                # Schema validation
-                if not all(key in parsed for key in ["name", "arguments"]):
-                    continue
-                if not isinstance(parsed["arguments"], dict):
-                    continue
+            # Schema validation
+            if not all(key in parsed for key in ["name", "arguments"]):
+                return []
+            if not isinstance(parsed["arguments"], dict):
+                return []
 
-                tool_matches.append(parsed)
-            except (json.JSONDecodeError, KeyError):
-                continue
+            # tool_matches.append(parsed)
+        except (json.JSONDecodeError, KeyError):
+            return []
 
-        return tool_matches
+        return [parsed]
 
     def ensure_valid_json(self, text: str):
         """
