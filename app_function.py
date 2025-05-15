@@ -147,6 +147,7 @@ async def entire_conversation(message, msg):
     # close the stream at the end of everything
     await msg.update()
 
+
 @on_message
 async def handle_message(message):
     msg = cl.Message(content="")
@@ -171,21 +172,54 @@ async def handle_message(message):
 @cl.on_chat_start
 async def on_chat_start():
     msg = cl.Message(content="")
-    await msg.stream_token("The application is loading, please wait for my first message, thank you!\n\n")
+    system_message = ("Hello, I am your Recommendation Assistant! I am here to help you investigating how is your streaming platform working. Specifically, this is a brief list of my skills:"
+                      "\n\n1. **Standard recommendations**: you can ask for recommendations for a specific user ID. I will call a recommender system and display the top k (by default, k = 5, but you can potentially ask for a specific number of recommendations) recommended items along with useful metadata to differentiate them (e.g., title and description)."
+                      "\n\n2. **Constrained recommendations**: you can ask for recommendations for a specific user ID and that have to satisfy some given conditions, for example, you can ask for movies starring a specific actor, directed by specific producers, released in a specific date and so on. Before calling the recommender system, a MySQL database will be queried to get all the items satisfying the given conditions. Note that once the filters have been applied, it might be that less than k items satisfy all the conditions. In this case, the final ranking might contain a number of items that does not match the provided k (i.e., the desired number of recommended items). This is a list of the available features on which you can build conditions:"
+                      "\n   - Actors: you can provide an actor name or a list of actor names. Fuzzy matching is also used internally to correct mispelled names or to find the most similar names w.r.t. the given names. If I had to correct some names, I will excplicity tell you what have been the corrections I made to perform the query;"
+                      "\n   - Directors: same as actors but for directors;"
+                      "\n   - Movie genres: same as actors but for movie genres;"
+                      "\n   - Producers: same as actors but for producers;"
+                      "\n   - IMDb rating: you can ask for movies with an IMDb rating higher or lower than a given threshold;"
+                      "\n   - Duration: you can ask for short or long movies, and for movies that last more or less than a certain threshold;"
+                      "\n   - Release date: you can ask for movies released on a specific date or movies that have been released prior to or after a specific date. Please, use the year when referring to dates;"
+                      "\n   - Popularity: you can ask for popular or unpopular movies;"
+                      "\n   - Popularity by age group: you can ask for movies popular in a specific age category: teenagers, kids, young adults, adults, seniors."
+                      "\n\n3. **Explanations for recommendations**: every time I provide you with a list of recommended items, I will ask you whether you would like a personalized explanation for them. If you reply yes, I will provide you explanations based on content-based (e.g., similar genres, actors, and so on) similarities between the recommended items and the 10 most recent items the user interacted with."
+                      "\n\n4. **User's mood-based recommendations**: you can ask for recommendations based on the mood of the provided user ID. It is enough you describe the mood of the user and I will try to provide recommendations that match the described mood. To do so, I will perform a vector store search to look for movie plots that match the provided user's mood. The top 10 matching items will be retrieved and the recommender system will be called on them to create a personalized ranking. Only the top 5 items will be displayed in this case."
+                      "\n\n5. **Description-based recommendations**: you can ask for recommendations for a specific user ID and that match a given description. To generate the result, similarly to the previous item, I will perform a vector store search to find the top 10 items that match the given description. Then, I will call the recommender system to generate a ranking of them. Finally, the top 5 items will be displayed."
+                      "\n\n6. **Similar item-based recommendations**: you can ask for recommendations for a specific user ID and that are similar to a given item ID. To generate the result, I will first query a MySQL database to get the description of the given item. Then, I will perform a vector store search to find the top 10 items that match the given description. Finally, I will call the recommender system to generate a ranking over them, personalized for the given user. The top 5 items will be displayed."
+                      "\n\n7. **Get item metadata**: you can ask for specific metadata of an item or list of item IDs. Specifically, you can ask for the following metadata: "
+                      "\n   - Title;"
+                      "\n   - Description; "
+                      "\n   - Actors;"
+                      "\n   - Movie genres; "
+                      "\n   - Directors;"
+                      "\n   - Producers;"
+                      "\n   - Duration;"
+                      "\n   - Release date;"
+                      "\n   - IMDb rating; "
+                      "\n   - Popularity."
+                      "\n\n8. **Get user metadata**: you can ask for specific metadata regarding a user ID. Specifically, you can ask for the gender and age category."
+                      "\n\n9. **Get user historical interactions**: you can ask for the historical interactions of a user ID. I will query a database to retrieve the item IDs of the previously interacted items. Then, I will query another database to get some metadata of these items to provide you a comprehensive description of them. Note that I will display to you the 10 most recent items. Extra: after I finished disp0laying the interacted items, you could ask me to analyze the user interests based on the metadata of the interacted items."
+                      "\n\n\nAs carefully explained in the previous items, to prepare your answers, I will interact with external tools using sophisticated Tool Calling and Retrieval Agumented Genration techniques. I will tell you about each step of the process to build your answer to provide maximum transparency. I will use a Chain of Thoughts prompting technique to provide the step-by-step process behing each answer preparation."
+                      "\n\n Feel free to start with your first query!")
+    for token in system_message:
+        # await msg.stream_token("The application is loading, please wait for my first message, thank you!\n\n")
+        await msg.stream_token(token)
 
-    message = client.messages.create_message(
-        thread_id=thread.id,
-        role='user',
-        content="This is a system message that the user does not see, so, avoid to start with 'certainly' or something similar!!! Instead, say hello and present yourself as the recommendation assistant. Then, explain to the user what are your skills and what you can do regarding the tools you can call. Provide a small description of the tools but do not provide examples of JSONs. Remember that the user is the owner of a streaming platform, so the recommendations you provide are always based on the user ID the platform owner prompts to you.",
-        assistant_id=assistant.id
-    )
-
-    run = client.runs.create_run(
-        assistant_id=assistant.id,
-        thread_id=thread.id
-    )
-
-    await standard_stream(run, message.id, msg)
+    # message = client.messages.create_message(
+    #     thread_id=thread.id,
+    #     role='user',
+    #     content="This is a system message that the user does not see, so, avoid to start with 'certainly' or something similar!!! Instead, say hello and present yourself as the recommendation assistant. Then, explain to the user what are your skills and what you can do regarding the tools you can call. Provide a small description of the tools but do not provide examples of JSONs. Remember that the user is the owner of a streaming platform, so the recommendations you provide are always based on the user ID the platform owner prompts to you.",
+    #     assistant_id=assistant.id
+    # )
+    #
+    # run = client.runs.create_run(
+    #     assistant_id=assistant.id,
+    #     thread_id=thread.id
+    # )
+    #
+    # await standard_stream(run, message.id, msg)
     await msg.update()
 
 # todo fixing the stop of the service with a retry mechanism -> I need to get the exception in some way to implement a retry mechanism
@@ -203,6 +237,7 @@ async def on_chat_start():
 # todo it seems like my implementation is not working. It hallucinates
 # todo put some enters between the various CoT so that everything is clearer
 # todo still do not understand what is not working, probably I need to create another run instead of relying on the same one
+# todo explain that these are the tools that can be internally used by the LLM, maybe we should not mention them
 
 
 

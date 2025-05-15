@@ -702,6 +702,8 @@ class BaseInference(ABC):
         text = re.sub(r"[“”]", '"', text)
         text = re.sub(r"(\s|\\n)+", " ", text)
 
+        print(f"Text after normalization: {text}")
+
         # Simplified pattern without recursion
         pattern = r"""
             \{         # Opening curly brace
@@ -2040,7 +2042,7 @@ class BaseInference(ABC):
                     parsed_function_call = embedded_call
                 else:
                     logging_utility.debug(
-                        "Did not find any JSON..."
+                        f"Did not find any JSON in the assistant reply: {assistant_reply}"
                     )
 
         return parsed_function_call
