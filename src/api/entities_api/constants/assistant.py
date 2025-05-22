@@ -1,6 +1,6 @@
 # entities_api/assistant.py
 # Global constants with enhanced validation
-PLATFORM_TOOLS = ["code_interpreter", "web_search", "vector_store_search", "computer"]
+PLATFORM_TOOLS = ["code_interpreter", "web_search", "vector_store_search_", "computer"]
 
 API_TIMEOUT = 30
 DEFAULT_MODEL = "llama3.1"

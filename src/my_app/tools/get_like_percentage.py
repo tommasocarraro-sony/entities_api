@@ -1,0 +1,55 @@
+import json
+from src.my_app.constants import JSON_GENERATION_ERROR
+from src.my_app.utils import read_ml100k_ratings
+
+
+GET_LIKE_PERCENTAGE = {
+    "function": {
+        "name": "get_like_percentage",
+        "description": (
+            "Returns the percentage of users that like the given item IDs."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "The IDs of the items for which the percentage has to be "
+                                   "computed.",
+                },
+            },
+            "required": ["items"]
+        }
+    }
+}
+
+
+def get_like_percentage(params):
+    """
+    This is the function that is invoked by the LLM when it has to compute the percentage of users
+    that like the given item IDs.
+
+    :param params: dictionary containing all the arguments to compute user percentage
+
+    :return: a prompt for the LLM that the LLM will use as additional context to prepare the final
+    answer
+    """
+    print("\nget_like_percentage has been triggered!!!\n")
+    if 'items' in params:
+        items = params.get('items')
+        # load rating file to compute percentage
+        user_interactions = read_ml100k_ratings()
+        # compute number of users
+        n_users = len(set(int(inter[0]) for inter in user_interactions))
+        # get number of users that interacted with the given items
+        n_users_by_items = len(set(int(inter[0]) for inter in user_interactions if inter[1] in items))
+        # compute percentage
+        perc = n_users_by_items / n_users * 100
+
+        return json.dumps({
+            "status": "success",
+            "message": f"This is the percentage of users that might like the given items: {perc}%"
+        })
+    else:
+        return json.dumps(JSON_GENERATION_ERROR)

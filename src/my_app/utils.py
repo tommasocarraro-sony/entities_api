@@ -5,9 +5,8 @@ import os
 import re
 import pandas as pd
 from dotenv import load_dotenv, set_key
-import ast
-from rapidfuzz import process
 from src.my_app.assistant import AssistantSetupService
+from src.my_app.constants import DATABASE_NAME
 
 
 def create_entities_environment(api_key, user_id, assistant_tools, vector_store_name):
@@ -33,35 +32,23 @@ def create_entities_environment(api_key, user_id, assistant_tools, vector_store_
                                  vector_store_name=vector_store_name)
 
 
-def create_app_environment(database_name, entities_setup):
+def create_app_environment(entities_setup):
     """
     This function creates the entire app environment. The components of the app are:
     1. a database containing data accessible to the assistant through function calling;
     2. a pre-trained recommender system accessible to the assistant through function calling;
     3. the Entities API environment (middleware layer between user and LLM)
 
-    :param database_name: name of the database that has to be created
     :param entities_setup: dictionary containing parameters for Entities API environment creation
     :return: client, user, thread, and assistant of Entities API environment
     """
-    create_ml100k_db(database_name)
+    create_ml100k_db(DATABASE_NAME)
     return create_entities_environment(
         api_key=entities_setup["api_key"],
         user_id=entities_setup["user_id"],
         assistant_tools=entities_setup["assistant_tools"],
         vector_store_name=entities_setup["vector_store_name"]
     )
-
-
-def create_lists_for_fuzzy_matching():
-    # create the lists of actors, directors, producers, and genres for fuzzy matching
-    global actors_list, producers_list, directors_list, genres_list
-    actors_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "actors_list")
-    producers_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv",
-                                          "producers_list")
-    directors_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv",
-                                          "directors_list")
-    genres_list = extract_unique_names("./data/recsys/ml-100k/final_ml-100k.csv", "genres_list")
 
 
 def create_ml100k_db(db_name):
@@ -84,17 +71,20 @@ def create_ml100k_db(db_name):
                     producer TEXT,
                     actors TEXT,
                     release_date INTEGER,
+                    release_month INTEGER,
+                    country TEXT,
                     duration INTEGER,
                     age_rating TEXT,
                     imdb_rating FLOAT,
                     imdb_num_reviews INTEGER,
-                    item_rating_count INTEGER,
-                    popularity TEXT,
-                    popular_kid INTEGER,
-                    popular_teenager INTEGER,
-                    popular_young_adult INTEGER,
-                    popular_adult INTEGER,
-                    popular_senior INTEGER,
+                    n_ratings INTEGER,
+                    n_ratings_kid INTEGER,
+                    n_ratings_teenager INTEGER,
+                    n_ratings_young_adult INTEGER,
+                    n_ratings_adult INTEGER,
+                    n_ratings_senior INTEGER,
+                    n_ratings_male INTEGER,
+                    n_ratings_female INTEGER,
                     description TEXT)''')
 
     # load data
@@ -114,41 +104,36 @@ def create_ml100k_db(db_name):
             director = parts[3] if parts[3] != 'unknown' else None
             producer = parts[4] if parts[4] != 'unknown' else None
             actors = parts[5] if parts[5] != 'unknown' else None
-            release_year = int(parts[6]) if parts[6] != 'unknown' and parts[6].isdigit() else None
-            duration = convert_duration(parts[7]) if parts[7] != 'unknown' else None
-            age_rating = parts[8] if parts[8] != 'unknown' else None
-            imdb_rating = float(parts[9]) if parts[9] != 'unknown' else None
-            imdb_num_reviews = convert_num_reviews(parts[10]) if parts[10] != 'unknown' else None
-            item_rating_count = int(parts[11])
-            popularity = parts[12]
-            description = parts[13] if parts[13] != 'unknown' else None
-            popular_kid = int(parts[18])
-            popular_teenager = int(parts[19])
-            popular_young_adult = int(parts[20])
-            popular_adult = int(parts[21])
-            popular_senior = int(parts[22])
+            release_date = int(parts[6]) if parts[6] != 'unknown' and parts[6].isdigit() else None
+            release_month = int(parts[7]) if parts[7] != 'unknown' else None
+            country = parts[8] if parts[8] != 'unknown' else None
+            duration = convert_duration(parts[9]) if parts[9] != 'unknown' else None
+            age_rating = parts[10] if parts[10] != 'unknown' else None
+            imdb_rating = float(parts[11]) if parts[11] != 'unknown' else None
+            imdb_num_reviews = convert_num_reviews(parts[12]) if parts[12] != 'unknown' else None
+            n_ratings = int(parts[13])
+            description = parts[14] if parts[14] != 'unknown' else None
+            n_ratings_kid = int(parts[15])
+            n_ratings_teenager = int(parts[16])
+            n_ratings_young_adult = int(parts[17])
+            n_ratings_adult = int(parts[18])
+            n_ratings_senior = int(parts[19])
+            n_ratings_male = int(parts[20])
+            n_ratings_female = int(parts[21])
 
             # Insert into the table
-            cursor.execute('INSERT OR IGNORE INTO items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            cursor.execute('INSERT OR IGNORE INTO items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                            (item_id, movie_title, genres, director, producer, actors,
-                            release_year, duration, age_rating, imdb_rating, imdb_num_reviews,
-                            item_rating_count, popularity, popular_kid, popular_teenager,
-                            popular_young_adult, popular_adult, popular_senior, description))
+                            release_date, release_month, country, duration, age_rating, imdb_rating,
+                            imdb_num_reviews,
+                            n_ratings, n_ratings_kid, n_ratings_teenager, n_ratings_young_adult,
+                            n_ratings_adult, n_ratings_senior, n_ratings_male, n_ratings_female,
+                            description))
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS interactions (user_id INTEGER PRIMARY KEY, items TEXT)''')
 
     # Read the file and build the dictionary
-    user_interactions = []
-
-    # Read and parse the file
-    with open('./data/recsys/ml-100k/ml-100k.inter', 'r') as f:
-        first_line = True
-        for line in f:
-            if first_line:
-                first_line = False
-                continue
-            user_id, item_id, rating, timestamp = line.strip().split('\t')
-            user_interactions.append((int(user_id), int(item_id), int(timestamp)))
+    user_interactions = read_ml100k_ratings()
 
     # Sort by timestamp
     user_interactions.sort(key=lambda x: x[2])
@@ -184,6 +169,19 @@ def create_ml100k_db(db_name):
     conn.close()
 
 
+def read_ml100k_ratings():
+    user_interactions = []
+    with open('./data/recsys/ml-100k/ml-100k.inter', 'r') as f:
+        first_line = True
+        for line in f:
+            if first_line:
+                first_line = False
+                continue
+            user_id, item_id, rating, timestamp = line.strip().split('\t')
+            user_interactions.append((int(user_id), int(item_id), int(timestamp)))
+    return user_interactions
+
+
 def convert_age_to_string(age):
     """
     This simply converts integer ages into age categories.
@@ -201,30 +199,6 @@ def convert_age_to_string(age):
         return "adult"
     if 60 < age <= 100:
         return "senior"
-
-
-def extract_unique_names(csv_path, column):
-    """
-    This function extracts unique names from a column of the dataset CSV file. The returned list
-    is used to implement fuzzy matching when performing SQL queries. Note fuzzy matching is only
-    performed for textual features.
-
-    :param csv_path: path to the CSV file
-    :param column: column name
-    :return: list of unique names
-    """
-    df = pd.read_csv(csv_path, sep='\t')
-
-    all_names = set()
-
-    for row in df[column].dropna():
-        try:
-            name_list = ast.literal_eval(row)
-            all_names.update(name.strip() for name in name_list)
-        except Exception as e:
-            print(f"Error parsing row: {row}\n{e}")
-
-    return sorted(all_names)
 
 
 def associate_tool_to_assistant(client, assistant_id, tool):
@@ -259,261 +233,6 @@ def associate_tool_to_assistant(client, assistant_id, tool):
             print(f"ERROR: {e}")
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
-
-
-def execute_sql_query(db_name, sql_query):
-    """
-    This function executes the given SQL query and returns the result.
-
-    :param db_name: database name
-    :param sql_query: SQL query string
-    :return: result of the query
-    """
-    conn = sqlite3.connect(f'{db_name}.db')
-    cursor = conn.cursor()
-    cursor.execute(sql_query)
-    result = cursor.fetchall()
-    conn.close()
-    print("\n" + str(result) + "\n")
-    return result
-
-
-def define_sql_query(table, conditions):
-    """
-    This function defines a SQL query given the passed conditions (filter
-    argument in the LLM-generated JSON for function calling)
-    :param table: database table name
-    :param conditions: filters to create SQL query
-    :return: SQL query string ready to be executed
-    """
-    query_parts = []
-    corrections, failed_corrections = [], []
-    requested_field = ""
-    if table == "interactions":
-        if 'user' in conditions:
-            user_id = conditions['user']
-            query_parts.append(f'user_id = {user_id}')
-            requested_field = "items"
-        else:
-            return None
-    elif table == "items" and ('genres' in conditions or 'actors' in conditions or
-                               'director' in conditions or 'producer' in conditions or
-                               'release_date' in conditions or 'duration' in conditions or
-                               'imdb_rating' in conditions or 'popularity' in conditions or
-                               'popularity_by_age_category' in conditions):
-        # process textual features
-        process_textual("genres", conditions, genres_list, query_parts, corrections, failed_corrections)
-        process_textual("actors", conditions, actors_list, query_parts, corrections, failed_corrections)
-        process_textual("director", conditions, directors_list, query_parts, corrections, failed_corrections)
-        process_textual("producer", conditions, producers_list, query_parts, corrections, failed_corrections)
-        if 'popularity' in conditions:
-            popularity = conditions['popularity']
-            query_parts.append(f"popularity = '{popularity}'")
-        if "popularity_by_age_category" in conditions:
-            popularity_by_age_category = conditions['popularity_by_age_category']
-            query_parts.append(f"{popularity_by_age_category} = 1")
-
-        # process numerical features
-        process_numerical("release_date", conditions, query_parts)
-        process_numerical("duration", conditions, query_parts)
-        process_numerical("imdb_rating", conditions, query_parts)
-
-        requested_field = "item_id"
-    elif table == "items" and 'specification' in conditions and 'items' in conditions:
-        specification = conditions['specification']
-        items = conditions['items']
-        requested_field = ", ".join(specification)
-        query_parts.append(f"item_id IN ({', '.join([str(i) for i in items])})")
-    elif table == "users" and "specification" in conditions and "user" in conditions:
-        specification = conditions['specification']
-        user = [conditions['user']] if not isinstance(conditions['user'], list) else conditions['user']
-        requested_field = ", ".join(specification)
-        query_parts.append(f"user_id IN ({', '.join([str(i) for i in user])})")
-    else:
-        return None, corrections, failed_corrections
-    if query_parts:
-        sql_query = f"SELECT {requested_field} FROM {table} WHERE {'AND '.join(query_parts)}"
-        print("\n" + sql_query + "\n")
-        return sql_query, corrections, failed_corrections
-    else:
-        return None, corrections, failed_corrections
-
-
-def define_qdrant_filters(conditions):
-    """
-    This function defines a Qdrant filters dict given the passed conditions (filter
-    argument in the LLM-generated JSON for function calling)
-    :param conditions: filters to create the Qdrant filters dict
-    :return: Qdrant filters dict
-    """
-    filters = {}
-    corrections, failed_corrections = [], []
-    if ('genres' in conditions or 'actors' in conditions or
-                               'director' in conditions or 'producer' in conditions or
-                               'release_date' in conditions or 'duration' in conditions or
-                               'imdb_rating' in conditions or 'popularity' in conditions or
-                               'popularity_by_age_category' in conditions):
-        # process textual features
-        process_textual_qdrant("genres", conditions, genres_list, filters, corrections, failed_corrections)
-        process_textual_qdrant("actors", conditions, actors_list, filters, corrections, failed_corrections)
-        process_textual_qdrant("director", conditions, directors_list, filters, corrections, failed_corrections)
-        process_textual_qdrant("producer", conditions, producers_list, filters, corrections, failed_corrections)
-        if "popularity" in conditions:
-            if "filter" not in filters:
-                filters["filter"] = {"must": []}
-            filters["filter"]["must"].append({"key": 'popularity', "match": {"text": conditions["popularity"]}})
-        if "popularity_by_age_category" in conditions:
-            if "filter" not in filters:
-                filters["filter"] = {"must": []}
-            filters["filter"]["must"].append({"key": conditions['popularity_by_age_category'], "match": {"value": 1}})
-
-        # process numerical features
-        process_numerical_qdrant("release_date", conditions, filters)
-        process_numerical_qdrant("duration", conditions, filters)
-        process_numerical_qdrant("imdb_rating", conditions, filters)
-
-        return filters, corrections, failed_corrections
-    else:
-        return {}, corrections, failed_corrections
-
-
-def process_textual_qdrant(feature, conditions, names_list, filters, corrections, failed_corrections):
-    """
-    Process a textual feature for creating the Qdrant filters dict.
-
-    :param feature: name of the feature to be processed
-    :param conditions: the filters provided by the user in the prompt
-    :param names_list: list of valid names
-    :param filters: dict containing Qdrant filters
-    :param corrections: list of corrections performed thanks to fuzzy matching
-    :param failed_corrections: list of failed corrections
-    """
-    if feature in conditions:
-        f = conditions[feature]
-        for f_ in f:
-            # perform fuzzy matching
-            f_corrected = correct_name(f_, names_list)
-            if f_corrected is None:
-                print(f"ERROR: {f_} is not a valid label for feature {feature}")
-                failed_corrections.append(f_)
-                continue  # if the name is not valid, we do not perform the query with that name
-            if f_corrected != f_:
-                print(f"Corrected name {f_} with name {f_corrected}")
-                corrections.append(f"{f_} -> {f_corrected}")
-            if "filter" not in filters:
-                filters["filter"] = {"must": []}
-            filters["filter"]["must"].append({"key": feature, "match": {"text": f_corrected}})
-
-
-def process_numerical_qdrant(feature, conditions, filters):
-    """
-    Process a numerical feature for creating the Qdrant filters dict.
-
-    :param feature: name of the feature to be processed
-    :param conditions: conditions provided by the user in the prompt
-    :param filters: dict containing Qdrant filters
-    """
-    if feature in conditions:
-        f = conditions[feature]
-        request = None
-        if isinstance(f, dict):
-            request = f['request']
-            f = f['threshold']
-        if "filter" not in filters:
-            filters["filter"] = {"must": []}
-        if request is not None:
-            filters["filter"]["must"].append({"key": feature, "range": {"gt": f}
-            if request == "higher" else {"lt": f}})
-        else:
-            filters["filter"]["must"].append({"key": feature, "match": {"value": f}})
-
-
-def process_textual(feature, conditions, names_list, query_parts, corrections, failed_corrections):
-    """
-    Process a textual feature for creating the SQL query.
-
-    :param feature: name of the feature to be processed
-    :param conditions: the filters provided by the user in the prompt
-    :param names_list: list of valid names
-    :param query_parts: str where to append the query part processed by this functions
-    :param corrections: list of corrections performed thanks to fuzzy matching
-    :param failed_corrections: list of failed corrections
-    """
-    if feature in conditions:
-        f = conditions[feature]
-        for f_ in f:
-            # perform fuzzy matching
-            f_corrected = correct_name(f_, names_list)
-            if f_corrected is None:
-                print(f"ERROR: {f_} is not a valid label for feature {feature}")
-                failed_corrections.append(f_)
-                continue  # if the name is not valid, we do not perform the query with that name
-            if f_corrected != f_:
-                print(f"Corrected name {f_} with name {f_corrected}")
-                corrections.append(f"{f_} -> {f_corrected}")
-            query_parts.append(f"LOWER({feature}) LIKE '%{f_corrected.lower()}%'")
-
-
-def correct_name(input_name, candidates, threshold=70):
-    """
-    Returns the best fuzzy match if above threshold; otherwise returns None.
-    """
-    print(f"Trying correcting name {input_name}")
-    match, score, _ = process.extractOne(input_name, candidates)
-    if score >= threshold:
-        return match
-    print(f"Failed to correct name {input_name}")
-    return None
-
-
-def process_numerical(feature, conditions, query_parts):
-    """
-    Process a numerical feature for creating the SQL query.
-
-    :param feature: name of the feature to be processed
-    :param conditions: conditions provided by the user in the prompt
-    :param query_parts: str where to append the query part processed by this functions
-    """
-    if feature in conditions:
-        f = conditions[feature]
-        request = None
-        if isinstance(f, dict):
-            request = f['request']
-            f = f['threshold']
-        if request is not None:
-            query_parts.append(
-                f"{feature} > {f}") if request == "higher" else query_parts.append(
-                f"{feature} < {f}")
-        else:
-            query_parts.append(f"{feature} = {f}")
-
-
-def create_md_from_item(item_file):
-    output_file = f'{item_file[:-5]}.md'
-
-    # Create a dictionary to store item metadata
-    item_info = {}
-
-    # Read the metadata file
-    with open(item_file, 'r', encoding='utf-8') as meta:
-        next(meta)  # Skip header
-        for line in meta:
-            parts = line.strip().split('\t')
-            item_id = parts[0]
-            title = parts[1]
-            release_year = parts[2]
-            genres = parts[3]
-            item_info[item_id] = (title, release_year, genres)
-
-    # Write to a markdown file
-    with open(output_file, 'w', encoding='utf-8') as md:
-        for item_id, (title, release_year, genres) in item_info.items():
-            md.write(f"## Item ID: {item_id}\n\n")
-            md.write(f"- Title: {title}\n")
-            md.write(f"- Release Year: {release_year}\n")
-            md.write(f"- Genres: {genres}\n\n")
-
-    print("Markdown file created!")
 
 
 def vector_store_setup_movielens(client, user_id, vector_store_name):
@@ -581,24 +300,24 @@ def create_vector_store(client, user_id, vector_store_name):
 
             meta = {
                 "item_id": int(mv["item_id"]),
-                "title": mv["title"] if mv["title"] != "unknown" else None,
-                "genres": ast.literal_eval(mv["genres_list"]) if mv["genres_list"] != "unknown" else None,
-                "director": ast.literal_eval(mv["directors_list"]) if mv["directors_list"] != "unknown" else None,
-                "producer": ast.literal_eval(mv["producers_list"]) if mv["producers_list"] != "unknown" else None,
-                "actors": ast.literal_eval(mv["actors_list"]) if mv["actors_list"] != "unknown" else None,
-                "release_date": int(mv["release_date"]) if mv["release_date"] != "unknown" else None,
-                "duration": convert_duration(mv["duration"]) if mv["duration"] != "unknown" else None,
-                "age_rating": mv["age_rating"] if mv["age_rating"] != "unknown" else None,
-                "imdb_rating": float(mv["imdb_rating"]) if mv["imdb_rating"] != "unknown" else None,
-                "imdb_num_reviews": convert_num_reviews(mv["imdb_num_reviews"]) if mv["imdb_num_reviews"] != "unknown" else None,
-                "item_rating_count": int(mv["item_rating_count"]),
-                "popularity": mv["popularity"],
+                # "title": mv["title"] if mv["title"] != "unknown" else None,
+                # "genres": ast.literal_eval(mv["genres_list"]) if mv["genres_list"] != "unknown" else None,
+                # "director": ast.literal_eval(mv["directors_list"]) if mv["directors_list"] != "unknown" else None,
+                # "producer": ast.literal_eval(mv["producers_list"]) if mv["producers_list"] != "unknown" else None,
+                # "actors": ast.literal_eval(mv["actors_list"]) if mv["actors_list"] != "unknown" else None,
+                # "release_date": int(mv["release_date"]) if mv["release_date"] != "unknown" else None,
+                # "duration": convert_duration(mv["duration"]) if mv["duration"] != "unknown" else None,
+                # "age_rating": mv["age_rating"] if mv["age_rating"] != "unknown" else None,
+                # "imdb_rating": float(mv["imdb_rating"]) if mv["imdb_rating"] != "unknown" else None,
+                # "imdb_num_reviews": convert_num_reviews(mv["imdb_num_reviews"]) if mv["imdb_num_reviews"] != "unknown" else None,
+                # "item_rating_count": int(mv["item_rating_count"]),
+                # "popularity": mv["popularity"],
                 "description": mv["description"] if mv["description"] != "unknown" else None,
-                "popular_kid": mv["popular_kid"],
-                "popular_teenager": mv["popular_teenager"],
-                "popular_young_adult": mv["popular_young_adult"],
-                "popular_adult": mv["popular_adult"],
-                "popular_senior": mv["popular_senior"]
+                # "popular_kid": mv["popular_kid"],
+                # "popular_teenager": mv["popular_teenager"],
+                # "popular_young_adult": mv["popular_young_adult"],
+                # "popular_adult": mv["popular_adult"],
+                # "popular_senior": mv["popular_senior"]
             }
 
             client.vectors.vector_manager.add_to_store(
