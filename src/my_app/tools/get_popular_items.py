@@ -18,10 +18,19 @@ GET_POPULAR_ITEMS = {
             "type": "object",
             "properties": {
                 "items": {
-                    "type": "array",
-                    "items": {"type": "integer"},
-                    "description": "The IDs of the items for which the popularity has to be "
-                                   "computed.",
+                    "oneOf": [
+                        {
+                          "type": "array",
+                          "items": {"type": "integer"},
+                          "description": "A list of item IDs."
+                        },
+                        {
+                          "type": "string",
+                          "description": "Path to a JSON file containing the item IDs."
+                        }
+                    ],
+                    "description": "Item ID(s) for which the popularity has to be computed, either "
+                                   "directly as a list or as a path to a JSON file."
                 },
                 "popularity": {
                     "type": "string",

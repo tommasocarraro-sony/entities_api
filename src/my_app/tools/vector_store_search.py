@@ -22,9 +22,19 @@ VECTOR_STORE_SEARCH = {
                     "description": "Query to perform the vector store search."
                 },
                 "items": {
-                    "type": "array",
-                    "items": {"type": "int"},
-                    "description": "IDs of the items to be included in the vector store search."
+                    "oneOf": [
+                        {
+                          "type": "array",
+                          "items": {"type": "integer"},
+                          "description": "A list of item IDs."
+                        },
+                        {
+                          "type": "string",
+                          "description": "Path to a JSON file containing the item IDs."
+                        }
+                    ],
+                    "description": "Item ID(s) that have to be included in the vector store "
+                                   "search, either directly as a list or as a path to a JSON file."
                 }
             }
         },

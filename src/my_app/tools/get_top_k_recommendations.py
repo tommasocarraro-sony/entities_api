@@ -28,10 +28,19 @@ GET_TOP_K_RECOMMENDATIONS = {
                     "description": "Number of recommended items."
                 },
                 "items": {
-                    "type": "array",
-                    "items": {"type": "int"},
-                    "description": "IDs of the items for which the recommendation has to "
-                                   "be computed."
+                    "oneOf": [
+                        {
+                          "type": "array",
+                          "items": {"type": "integer"},
+                          "description": "A list of item IDs."
+                        },
+                        {
+                          "type": "string",
+                          "description": "Path to a JSON file containing the item IDs."
+                        }
+                    ],
+                    "description": "Item ID(s) for which the recommendation has to be computed, "
+                                   "either directly as a list or as a path to a JSON file."
                 },
             },
             "required": ["user", "k"],

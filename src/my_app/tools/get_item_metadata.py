@@ -13,9 +13,19 @@ GET_ITEM_METADATA = {
             "type": "object",
             "properties": {
                 "items": {
-                    "type": "array",
-                    "items": {"type": "int"},
-                    "description": "Item ID(s) for which the metadata has to be retrieved."
+                    "oneOf": [
+                        {
+                          "type": "array",
+                          "items": {"type": "integer"},
+                          "description": "A list of item IDs."
+                        },
+                        {
+                          "type": "string",
+                          "description": "Path to a JSON file containing the item IDs."
+                        }
+                    ],
+                    "description": "Item ID(s) for which the metadata has to be retrieved, either "
+                                   "directly as a list or as a path to a JSON file."
                 },
                 "get": {
                     "type": "array",
