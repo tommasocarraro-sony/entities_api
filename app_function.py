@@ -280,6 +280,7 @@ async def handle_message(message):
 # todo take storyline and release date of movie -> merge storyline with description in vector store, simply add the storyline at the bottom, this has to be changed even in the database -? did I put the genres??
 # todo implement fuzzy matching for country
 # todo understand what to do to when item filter just return 10 items. If these are very unpopular, then it is likely that it will be difficult to get good statistics
+# todo for get_interacted_items, when recommending, it is possible to get all the items maybe, but with 10 is easier, but this means that no all the items are used for explanation
 
 
 

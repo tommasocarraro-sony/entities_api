@@ -49,7 +49,7 @@ def get_interacted_items(params, return_list=False):
 
         if result and not return_list:
             response_dict = get_item_metadata(params={'items': result,
-                                                      'specification': ["item_id", "title", "genres", "director", "producer", "actors", "release_date", "duration", "imdb_rating", "description"]},
+                                                      'get': ["item_id", "title", "genres", "director", "producer", "actors", "release_date", "release_month", "country", "duration", "imdb_rating", "description"]},
                                               return_dict=True)
 
             return json.dumps({

@@ -129,6 +129,9 @@ def item_filter(params):
             # todo understand how to return only the most popular movies when no recommendations are requested -> I could call get_popular_items
             # todo there is the problem that a random sampling is done out of a huge number of movies. This random sampling make it difficult to find the real best performing genre or duration
             # todo it is probably better to do the filtering and the popularity all together
+            # todo probably the best solution is to have the filtering in input to each tool that might require it
+            # todo I might give the possibility to pass IDs or generate a tool call -> in the case of the tool call, I need to return just the IDs and not text
+            # todo then, items of the other tools might take item IDs or a file path -> get_item_metadata, get_like_percentage, get_popular_items
             if len(item_ids) > 20:
                 # if there are more than 20 items satisfying the conditions, we sample 20 items
                 item_ids = random.sample(item_ids, 20)

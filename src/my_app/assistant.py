@@ -209,6 +209,7 @@ ALL tool calls MUST follow EXACT structure:
 16. If you need to user the item_filter tool and it does not return any results, please explain the user that there are no items satisfying the given conditions. If this is the case, you must stop the tool calling pipeline for the current request and avoid calling additional tools.
 17. When you use get_popular_items, explain the user that an item is popular when it has a number of ratings that is above the .75 quantile of the rating distribution.
 18. When using item_filter, the "release_month" field might be useful to filter based on the festive calendar. For example, if a user is requesting for movies released during christmas, you can set "release_month" to 12 (i.e., "release_month": 12) to get all the movies released during that period of the year. You should be able to filter the correct month if it is not explicitly mentioned in the query.
+19. When you use get_interacted_items, it is possible the tool returns only 10 items. If this is the case, it is due to the fact that the user interacted with more than 10 items in the past. The 10 most recent interactions are returned by the tool in this case. This is to avoid verbosity and for efficient use of tokens.
     """.strip(),
     "INTERNAL_REASONING_PROTOCOL": """
 🔹 **ADDITIONAL INTERNAL USAGE AND REASONING PROTOCOL**
