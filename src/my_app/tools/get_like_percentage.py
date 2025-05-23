@@ -55,6 +55,7 @@ def get_like_percentage(params):
                 "status": "failure",
                 "message": "There are issues with the temporary file containing the item IDs.",
             })
+        items = [int(i) for i in items]
         # load rating file to compute percentage
         user_interactions = read_ml100k_ratings()
         # compute number of users

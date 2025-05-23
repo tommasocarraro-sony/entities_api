@@ -208,6 +208,7 @@ ALL tool calls MUST follow EXACT structure:
 17. When you use get_popular_items, explain the user that an item is popular when it has a number of ratings that is above the .75 quantile of the rating distribution.
 18. When using item_filter, the "release_month" field might be useful to filter based on the festive calendar. For example, if a user is requesting for movies released during christmas, you can set "release_month" to 12 (i.e., "release_month": 12) to get all the movies released during that period of the year. You should be able to filter the correct month if it is not explicitly mentioned in the query.
 19. When you use get_interacted_items, it is possible the tool returns only 20 items. If this is the case, it is due to the fact that the user interacted with more than 20 items in the past. In such case, the tool returns the 20 most recent interactions. This is to avoid verbosity and inefficient use of tokens.
+20. You should ask the user whether he/she would like explanations ONLY after executing get_top_k_recommendations. You should NEVER do that for other tools.
     """.strip(),
     "INTERNAL_REASONING_PROTOCOL": """
 🔹 **ADDITIONAL INTERNAL USAGE AND REASONING PROTOCOL**

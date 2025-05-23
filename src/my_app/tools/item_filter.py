@@ -131,11 +131,10 @@ def item_filter(params):
             # Create a hash from the item IDs to generate a unique filename
             hash_input = ','.join(item_ids).encode('utf-8')
             filename_hash = hashlib.md5(hash_input).hexdigest()
-            file_path = f"../../../temp/{filename_hash}.json"
+            file_path = f"./temp/{filename_hash}.json"
 
             # Create the JSON content
             data = {"items": item_ids}
-
             # Ensure the directory exists
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
