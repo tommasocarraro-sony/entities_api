@@ -22,8 +22,8 @@ df = df.rename(columns={
     'movie_length': 'duration',
     'rating': 'imdb_rating',
     'num_review': 'imdb_num_reviews',
-    'year': 'release_date',
     'release_date': 'release_month',
+    'year': 'release_date',
     'movie_id': 'item_id',
     'movie_title': 'title',
     'country': 'country'
