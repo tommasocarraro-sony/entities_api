@@ -39,11 +39,11 @@ def get_interacted_items(params, return_list=False):
         sql_query, _, _ = define_sql_query("interactions", params)
         result = execute_sql_query(sql_query)[0][0].split(",")
 
-        if len(result) > 10:
-            # if there are more than 10 interacted items, we take the most recent ones
-            result = result[-10:]
-            mess = (f"Since user {user} interacted with more than 10 items in the past, we only "
-                    f"list his/her most recent 10 interactions: ")
+        if len(result) > 20:
+            # if there are more than 20 interacted items, we take the most recent ones
+            result = result[-20:]
+            mess = (f"Since user {user} interacted with more than 20 items in the past, we only "
+                    f"list his/her most recent 20 interactions: ")
         else:
             mess = f"These are all the items user {user} interacted in the past: "
 

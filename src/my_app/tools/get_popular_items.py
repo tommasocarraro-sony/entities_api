@@ -8,8 +8,8 @@ GET_POPULAR_ITEMS = {
     "function": {
         "name": "get_popular_items",
         "description": (
-            "Returns the IDs of the popular items from a set of given item IDs. If no IDs are given,"
-            "it computes the popularity of the entire item set."
+            "Returns the IDs of the popular items from a set of given item IDs. If no IDs "
+            "are given, it computes the popularity of the entire item set."
             "It can optionally return popular items in a given user group (e.g., kids, "
             "females, etc.)."
             "If requested, it can return the top 3 popular items."
@@ -125,8 +125,8 @@ def get_popular_items(params):
                 if get == "top3":
                     item_ids = item_ids[:3]
                 else:
-                    if len(item_ids) > 10:
-                        item_ids = item_ids[:10]
+                    if len(item_ids) > 20:
+                        item_ids = item_ids[:20]
                         filtered = True
             n_pop_items = len(item_ids)
         else:
@@ -137,7 +137,7 @@ def get_popular_items(params):
 
         return json.dumps({
             "status": "success",
-            "message": f"These are the IDs of the {n_pop_items} most popular items: {item_ids}. {'Explain the user that more than 10 popular items were retrieved by the tool. However, to avoid verbosity and for efficient use of tokens, the IDs of the 10 most popular items are generated.' if filtered else ''}"
+            "message": f"These are the IDs of the {n_pop_items} most popular items: {item_ids}. {'Explain the user that more than 20 popular items were retrieved by the tool. However, to avoid verbosity and for efficient use of tokens, the IDs of the 20 most popular items are generated.' if filtered else ''}"
         })
     else:
         return json.dumps(JSON_GENERATION_ERROR)
