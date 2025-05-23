@@ -159,7 +159,7 @@ ALL tool calls MUST follow EXACT structure:
 7. What are the title and release date of movie 9? Tool calls: get_item_metadata.
 8. What is the gender of user 4? Tool calls: get_user_metadata.
 9. What are the historical interactions of user 90? Tool calls: get_interacted_items.
-10. Provide the IDs of the movies starring Tom Cruise and released after 1990. Tool calls: item_filter.
+10. Which are the movies starring Tom Cruise and released after 1990? Tool calls: item_filter -> get_item_metadata.
 11. Recommend some items to user 4. Tool calls: get_top_k_recommendations.
 12. Recommend some popular horror movies to user 89. Tool calls: item_filter -> get_popular_items -> get_top_k_recommendations.
 13. Recommend to user 5 action movies released prior to 1999 that are popular among female teenagers. Tool calls: item_filter -> get_popular_items -> get_top_k_recommendations.

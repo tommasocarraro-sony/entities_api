@@ -6,6 +6,7 @@ import json
 from src.my_app.constants import JSON_GENERATION_ERROR
 from src.my_app.tools.get_item_metadata import get_item_metadata
 from src.my_app.tools.get_interacted_items import get_interacted_items
+from src.my_app.tools.utils import convert_to_list
 
 
 GET_TOP_K_RECOMMENDATIONS = {
@@ -90,6 +91,13 @@ def get_top_k_recommendations(params):
         # check if it is a constrained recommendation
         if 'items' in params:
             items = params.get('items')
+            try:
+                items = convert_to_list(items)
+            except Exception:
+                return json.dumps({
+                    "status": "failure",
+                    "message": "There are issues with the temporary file containing the item IDs.",
+                })
             recommended_items = recommend_given_items(uid_series, items, k=k)
         else:
             recommended_items = recommend_full_catalog(uid_series, k=k)

@@ -1,5 +1,5 @@
 import json
-from src.my_app.tools.utils import execute_sql_query, define_sql_query
+from src.my_app.tools.utils import execute_sql_query, define_sql_query, convert_to_list
 from src.my_app.constants import JSON_GENERATION_ERROR
 import numpy as np
 
@@ -74,6 +74,14 @@ def get_popular_items(params):
         if popularity == "standard":
             if 'items' in params:
                 items = params.get('items')
+                try:
+                    items = convert_to_list(items)
+                except Exception:
+                    return json.dumps({
+                        "status": "failure",
+                        "message": "There are issues with the temporary file containing the "
+                                   "item IDs.",
+                    })
                 items = [int(i) for i in items]
                 sql_query, _, _ = define_sql_query("items", {"select": ["item_id", "n_ratings"], "items": items})
             else:
@@ -84,6 +92,14 @@ def get_popular_items(params):
                 user_group = [f"n_ratings_{group}" for group in user_group]
                 if 'items' in params:
                     items = params.get('items')
+                    try:
+                        items = convert_to_list(items)
+                    except Exception:
+                        return json.dumps({
+                            "status": "failure",
+                            "message": "There are issues with the temporary file containing the "
+                                       "item IDs.",
+                        })
                     items = [int(i) for i in items]
                     sql_query, _, _ = define_sql_query("items",
                                                        {"select": ["item_id"] + user_group, "items": items})

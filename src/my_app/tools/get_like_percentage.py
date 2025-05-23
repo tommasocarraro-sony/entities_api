@@ -1,6 +1,7 @@
 import json
 from src.my_app.constants import JSON_GENERATION_ERROR
 from src.my_app.utils import read_ml100k_ratings
+from src.my_app.tools.utils import convert_to_list
 
 
 GET_LIKE_PERCENTAGE = {
@@ -47,6 +48,13 @@ def get_like_percentage(params):
     print("\nget_like_percentage has been triggered!!!\n")
     if 'items' in params:
         items = params.get('items')
+        try:
+            items = convert_to_list(items)
+        except Exception:
+            return json.dumps({
+                "status": "failure",
+                "message": "There are issues with the temporary file containing the item IDs.",
+            })
         # load rating file to compute percentage
         user_interactions = read_ml100k_ratings()
         # compute number of users

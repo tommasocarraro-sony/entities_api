@@ -1,5 +1,5 @@
 import json
-from src.my_app.tools.utils import execute_sql_query, define_sql_query
+from src.my_app.tools.utils import execute_sql_query, define_sql_query, convert_to_list
 from src.my_app.constants import JSON_GENERATION_ERROR
 
 
@@ -54,6 +54,13 @@ def get_item_metadata(params, return_dict=False):
     print("\nget_item_metadata has been triggered!!!\n")
     if 'items' in params and 'get' in params:
         items = params.get('items')
+        try:
+            items = convert_to_list(items)
+        except Exception:
+            return json.dumps({
+                "status": "failure",
+                "message": "There are issues with the temporary file containing the item IDs.",
+            })
         specification = params.get('get')
         sql_query, _, _ = define_sql_query("items", {"items": items, "specification": specification})
         result = execute_sql_query(sql_query)

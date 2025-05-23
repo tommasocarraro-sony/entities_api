@@ -3,6 +3,8 @@ import pandas as pd
 import ast
 from rapidfuzz import process
 from src.my_app.constants import DATABASE_NAME
+import os
+import json
 
 
 def create_lists_for_fuzzy_matching():
@@ -181,3 +183,31 @@ def process_numerical(feature, conditions, query_parts):
                 f"{feature} < {f}")
         else:
             query_parts.append(f"{feature} = {f}")
+
+
+def convert_to_list(items):
+    """
+    It takes a list of item IDs or a path to a JSON file containing a list of item IDs.
+    If `items` is a string containing the path, then it converts the content to a list.
+    :param items: list or string
+    :return: list of item IDs
+    """
+    if isinstance(items, str):
+        # Assume it's a path to a JSON file
+        if not os.path.exists(items):
+            raise FileNotFoundError(f"Item list file not found: {items}")
+
+        with open(items, 'r') as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict) or 'items' not in data:
+            raise ValueError(
+                f"Invalid file format: expected a JSON object with an 'items' key, got: {data}")
+
+        items = data['items']
+
+        if not isinstance(items, list):
+            raise ValueError(
+                f"The 'items' key in the file must contain a list. Got: {type(items)}")
+
+    return items

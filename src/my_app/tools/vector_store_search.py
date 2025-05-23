@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from projectdavid import Entity
 from src.my_app.constants import JSON_GENERATION_ERROR
+from src.my_app.tools.utils import convert_to_list
 
 
 VECTOR_STORE_SEARCH = {
@@ -106,6 +107,13 @@ def vector_store_search(params):
             # if some item IDs are given, the vector store search has to be executed only on those
             # items
             items = params.get('items')
+            try:
+                items = convert_to_list(items)
+            except Exception:
+                return json.dumps({
+                    "status": "failure",
+                    "message": "There are issues with the temporary file containing the item IDs.",
+                })
             items = [int(item) for item in items]
             qdrant_filters = {"filter": {"must": [{"key": "item_id", "match": {"any": items}}]}}
             item_ids, item_metadata = perform_vector_store_search(query, filters=qdrant_filters)
