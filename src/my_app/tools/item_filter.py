@@ -1,14 +1,16 @@
 import json
 from src.my_app.tools.utils import execute_sql_query, define_sql_query
 from src.my_app.constants import JSON_GENERATION_ERROR
-import random
+import hashlib
+import os
 
 
 ITEM_FILTER = {
     "function": {
         "name": "item_filter",
         "description": (
-            "Returns the IDs of the items that satisfy the given conditions."
+            "Returns the path to a temporary file containing the IDs of the items that satisfy the "
+            "given conditions."
         ),
         "parameters": {
             "type": "object",
@@ -126,18 +128,23 @@ def item_filter(params):
         if sql_query is not None:
             result = execute_sql_query(sql_query)
             item_ids = [str(row[0]) for row in result]
-            # todo understand how to return only the most popular movies when no recommendations are requested -> I could call get_popular_items
-            # todo there is the problem that a random sampling is done out of a huge number of movies. This random sampling make it difficult to find the real best performing genre or duration
-            # todo it is probably better to do the filtering and the popularity all together
-            # todo probably the best solution is to have the filtering in input to each tool that might require it
-            # todo I might give the possibility to pass IDs or generate a tool call -> in the case of the tool call, I need to return just the IDs and not text
-            # todo then, items of the other tools might take item IDs or a file path -> get_item_metadata, get_like_percentage, get_popular_items
-            if len(item_ids) > 20:
-                # if there are more than 20 items satisfying the conditions, we sample 20 items
-                item_ids = random.sample(item_ids, 20)
-                mess = f"These are the IDs of 20 items satisfying the given conditions: {item_ids}. Explain the user that since more than 20 items were satisfying the given conditions, a uniform sampling has been done to retrieve a small set of items. If the user originally asked for recommendations, explain that this sampling is good to promote diversity and serendipity, and to reduce the popularity bias when performing recommendations. Instead, if the user originally asked to just retrieve some item IDs, explain him/her that this sampling is helpful to avoid streaming a vast amount of tokens. 20 items IDs should be enough to explore the item space. You can then proceed with the next reasoning step, if there is one."
-            else:
-                mess = f"These are the IDs of the items satisfying the given conditions: {item_ids}. You can now proceed to the next step."
+            # Create a hash from the item IDs to generate a unique filename
+            hash_input = ','.join(item_ids).encode('utf-8')
+            filename_hash = hashlib.md5(hash_input).hexdigest()
+            file_path = f"../../../temp/{filename_hash}.json"
+
+            # Create the JSON content
+            data = {"items": item_ids}
+
+            # Ensure the directory exists
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+            # Save the file
+            with open(file_path, "w") as f:
+                json.dump(data, f)
+
+            print(f"Saved item IDs to {file_path}")
+            mess = f"The IDs of the items satisfying the given conditions have been saved to this file path: {file_path}. You can now proceed to the next step. It is enough you pass this path to the \"items\" parameter of the next tool call."
             matched = True
 
         failed_corr_text = f"Note that corrections for these fields have been tried but failed: {failed_corrections}, so the final recommendation output will not take the failed filters into consideration."
